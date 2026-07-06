@@ -1,0 +1,143 @@
+{
+  "suite": "roundtrip-basic",
+  "description": "Core round-trip laws: parse(stringify(spec)) identity for canonical specs, idempotent canonicalization of accepted inputs, canonical segment/sort ordering, version passthrough.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "stock": { "type": "number" },
+      "name": { "type": "string" },
+      "category": { "type": "enum", "values": ["phone", "laptop", "tablet"] },
+      "active": { "type": "boolean" },
+      "createdAt": { "type": "date", "alias": "created" },
+      "deletedAt": { "type": "date" },
+      "secret": { "type": "string", "sortable": false, "filterable": false }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-prompt-example",
+      "op": "parse",
+      "input": "sort=price:desc,stock:asc&filter=price:between:1000,5000;category:in:phone,laptop;deletedAt:isNull&offset=30&limit=30",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [
+            { "kind": "condition", "field": "price", "op": "between", "value": [1000, 5000] },
+            { "kind": "condition", "field": "category", "op": "in", "value": ["phone", "laptop"] },
+            { "kind": "condition", "field": "deletedAt", "op": "isNull" }
+          ],
+          "sorts": [
+            { "field": "price", "direction": "desc", "priority": 1 },
+            { "field": "stock", "direction": "asc", "priority": 2 }
+          ],
+          "offset": 30,
+          "limit": 30
+        }
+      }
+    },
+    {
+      "name": "stringify-prompt-example",
+      "op": "stringify",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "price", "op": "between", "value": [1000, 5000] },
+          { "kind": "condition", "field": "category", "op": "in", "value": ["phone", "laptop"] },
+          { "kind": "condition", "field": "deletedAt", "op": "isNull" }
+        ],
+        "sorts": [
+          { "field": "price", "direction": "desc", "priority": 1 },
+          { "field": "stock", "direction": "asc", "priority": 2 }
+        ],
+        "offset": 30,
+        "limit": 30
+      },
+      "expect": {
+        "ok": true,
+        "output": "sort=price:desc,stock:asc&filter=price:between:1000,5000;category:in:phone,laptop;deletedAt:isNull&offset=30&limit=30"
+      }
+    },
+    {
+      "name": "roundtrip-prompt-example",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "price", "op": "between", "value": [1000, 5000] },
+          { "kind": "condition", "field": "category", "op": "in", "value": ["phone", "laptop"] },
+          { "kind": "condition", "field": "deletedAt", "op": "isNull" }
+        ],
+        "sorts": [
+          { "field": "price", "direction": "desc", "priority": 1 },
+          { "field": "stock", "direction": "asc", "priority": 2 }
+        ],
+        "offset": 30,
+        "limit": 30
+      }
+    },
+    {
+      "name": "parse-empty-input",
+      "op": "parse",
+      "input": "",
+      "expect": { "ok": true, "spec": { "filters": [], "sorts": [] } }
+    },
+    {
+      "name": "stringify-empty-spec",
+      "op": "stringify",
+      "spec": { "filters": [], "sorts": [] },
+      "expect": { "ok": true, "output": "" }
+    },
+    {
+      "name": "canonicalize-reordered-segments-and-bare-direction",
+      "op": "canonicalize",
+      "input": "offset=30&filter=deletedAt:isNull&sort=price&limit=30",
+      "expect": {
+        "ok": true,
+        "output": "sort=price:asc&filter=deletedAt:isNull&offset=30&limit=30"
+      },
+      "note": "Segments accepted in any order; omitted direction defaults to asc; canonical order is sort,filter,offset,limit,cursor,version."
+    },
+    {
+      "name": "parse-nulls-tokens",
+      "op": "parse",
+      "input": "sort=price:desc:nullslast,name:asc:nullsfirst",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [
+            { "field": "price", "direction": "desc", "nulls": "last", "priority": 1 },
+            { "field": "name", "direction": "asc", "nulls": "first", "priority": 2 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "canonicalize-nulls-tokens-already-canonical",
+      "op": "canonicalize",
+      "input": "sort=price:desc:nullslast,name:asc:nullsfirst",
+      "expect": { "ok": true, "output": "sort=price:desc:nullslast,name:asc:nullsfirst" }
+    },
+    {
+      "name": "parse-version-passthrough",
+      "op": "parse",
+      "input": "version=1",
+      "expect": { "ok": true, "spec": { "filters": [], "sorts": [], "version": 1 } }
+    },
+    {
+      "name": "canonicalize-version",
+      "op": "canonicalize",
+      "input": "version=1",
+      "expect": { "ok": true, "output": "version=1" }
+    },
+    {
+      "name": "roundtrip-cursor-with-limit",
+      "op": "roundtrip-spec",
+      "spec": { "filters": [], "sorts": [], "limit": 20, "cursor": "eyJpZCI6NDJ9" },
+      "expect": { "output": "limit=20&cursor=eyJpZCI6NDJ9" },
+      "note": "cursor+limit is valid (only cursor+offset conflicts); canonical order puts limit before cursor."
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "suite": "parse-errors",
+  "description": "Whitelist enforcement and structural parse errors: UNKNOWN_FIELD / NOT_SORTABLE / NOT_FILTERABLE / INVALID_OPERATOR, malformed and duplicate segments, multi-error collection in input order. Positions are 0-based UTF-16 indices, asserted only where stable.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "stock": { "type": "number" },
+      "name": { "type": "string" },
+      "secret": { "type": "string", "sortable": false, "filterable": false }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-unknown-sort-field",
+      "op": "parse",
+      "input": "sort=foo:asc",
+      "expect": { "ok": false, "errors": [{ "code": "UNKNOWN_FIELD", "field": "foo", "position": 5 }] }
+    },
+    {
+      "name": "parse-not-sortable",
+      "op": "parse",
+      "input": "sort=secret:asc",
+      "expect": { "ok": false, "errors": [{ "code": "NOT_SORTABLE", "field": "secret" }] }
+    },
+    {
+      "name": "parse-not-filterable",
+      "op": "parse",
+      "input": "filter=secret:eq:x",
+      "expect": { "ok": false, "errors": [{ "code": "NOT_FILTERABLE", "field": "secret" }] }
+    },
+    {
+      "name": "parse-unknown-operator",
+      "op": "parse",
+      "input": "filter=price:like:5",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_OPERATOR", "field": "price", "op": "like" }] }
+    },
+    {
+      "name": "parse-missing-value-part",
+      "op": "parse",
+      "input": "filter=name:contains",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "name", "op": "contains" }] }
+    },
+    {
+      "name": "parse-uppercase-direction-rejected",
+      "op": "parse",
+      "input": "sort=price:DESC",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price" }] },
+      "note": "Direction tokens are matched raw and lowercase-strict."
+    },
+    {
+      "name": "parse-malformed-segment",
+      "op": "parse",
+      "input": "foo",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "position": 0 }] }
+    },
+    {
+      "name": "parse-page-is-a-dialect-not-canonical",
+      "op": "parse",
+      "input": "page=2&limit=30",
+      "expect": { "ok": false, "errors": [{ "code": "UNKNOWN_FIELD", "field": "page", "position": 0 }] },
+      "note": "page-based pagination is a v0.2 dialect (ADR-0010); the canonical grammar has offset/limit only."
+    },
+    {
+      "name": "parse-collects-multiple-errors",
+      "op": "parse",
+      "input": "sort=foo:asc,bar:asc",
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "foo" },
+          { "code": "UNKNOWN_FIELD", "field": "bar" }
+        ]
+      }
+    },
+    {
+      "name": "parse-duplicate-segment",
+      "op": "parse",
+      "input": "sort=price:asc&sort=stock:asc",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "sort" }] }
+    },
+    {
+      "name": "parse-duplicate-sort-field",
+      "op": "parse",
+      "input": "sort=price:asc,price:desc",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price" }] }
+    },
+    {
+      "name": "parse-empty-filter-item",
+      "op": "parse",
+      "input": "filter=price:eq:1;;stock:eq:2",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE" }] },
+      "note": "Structural list items must not be empty; the two valid items do not mask the error."
+    },
+    {
+      "name": "parse-empty-sort-segment",
+      "op": "parse",
+      "input": "sort=",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "position": 5 }] }
+    }
+  ]
+}

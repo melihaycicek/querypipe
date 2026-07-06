@@ -1,0 +1,75 @@
+{
+  "suite": "alias",
+  "description": "alias is THE wire name of a field in the string format: it replaces the internal name (which becomes UNKNOWN_FIELD on the wire), while the QuerySpec JSON always carries internal names (ADR-0007 §7, ADR-0001 §8).",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "createdAt": { "type": "date", "alias": "created" },
+      "name": { "type": "string" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-alias-resolves-to-internal-name",
+      "op": "parse",
+      "input": "sort=created:desc",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [{ "field": "createdAt", "direction": "desc", "priority": 1 }]
+        }
+      }
+    },
+    {
+      "name": "parse-internal-name-is-not-a-wire-name",
+      "op": "parse",
+      "input": "sort=createdAt:desc",
+      "expect": { "ok": false, "errors": [{ "code": "UNKNOWN_FIELD", "field": "createdAt" }] },
+      "note": "One spelling per field on the wire: when an alias is declared, the internal name is not accepted — prevents split-brain URLs."
+    },
+    {
+      "name": "stringify-emits-alias",
+      "op": "stringify",
+      "spec": {
+        "filters": [],
+        "sorts": [{ "field": "createdAt", "direction": "desc", "priority": 1 }]
+      },
+      "expect": { "ok": true, "output": "sort=created:desc" }
+    },
+    {
+      "name": "parse-alias-in-filter",
+      "op": "parse",
+      "input": "filter=created:isNull",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "createdAt", "op": "isNull" }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "validate-json-uses-internal-names-only",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "created", "op": "isNull" }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "UNKNOWN_FIELD", "field": "created" }] },
+      "note": "Aliases exist only in the string format; the JSON wire format speaks internal names."
+    },
+    {
+      "name": "roundtrip-aliased-field",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "createdAt", "op": "notNull" }],
+        "sorts": [{ "field": "createdAt", "direction": "asc", "priority": 1 }]
+      },
+      "expect": { "output": "sort=created:asc&filter=created:notNull" }
+    }
+  ]
+}

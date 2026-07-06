@@ -1,0 +1,137 @@
+{
+  "suite": "guards",
+  "description": "Guard limits return structured codes and never throw: MAX_SORT_EXCEEDED, MAX_FILTER_EXCEEDED, VALUE_TOO_LONG (including the maxInItems mapping). Value length is measured on the canonical string form of the value, in UTF-16 code units.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "guards": { "maxSortColumns": 2, "maxFilters": 2, "maxValueLength": 5, "maxInItems": 2 },
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "stock": { "type": "number" },
+      "name": { "type": "string" },
+      "deletedAt": { "type": "date" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-max-sort-exceeded",
+      "op": "parse",
+      "input": "sort=price:asc,stock:asc,id:asc",
+      "expect": { "ok": false, "errors": [{ "code": "MAX_SORT_EXCEEDED" }] },
+      "note": "One error for the segment, not one per extra column."
+    },
+    {
+      "name": "parse-max-sort-boundary-ok",
+      "op": "parse",
+      "input": "sort=price:asc,stock:asc",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [
+            { "field": "price", "direction": "asc", "priority": 1 },
+            { "field": "stock", "direction": "asc", "priority": 2 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "parse-max-filters-exceeded",
+      "op": "parse",
+      "input": "filter=price:gt:1;stock:gt:2;price:lt:9",
+      "expect": { "ok": false, "errors": [{ "code": "MAX_FILTER_EXCEEDED" }] }
+    },
+    {
+      "name": "parse-value-too-long",
+      "op": "parse",
+      "input": "filter=name:eq:abcdef",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "VALUE_TOO_LONG", "field": "name", "op": "eq" }]
+      }
+    },
+    {
+      "name": "parse-value-boundary-ok",
+      "op": "parse",
+      "input": "filter=name:eq:abcde",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "name", "op": "eq", "value": "abcde" }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-max-in-items-maps-to-value-too-long",
+      "op": "parse",
+      "input": "filter=name:in:a,b,c",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "VALUE_TOO_LONG", "field": "name", "op": "in" }]
+      },
+      "note": "maxInItems breaches reuse VALUE_TOO_LONG with op set — the closed code set stays closed (ADR-0006)."
+    },
+    {
+      "name": "parse-length-measured-on-canonical-form",
+      "op": "parse",
+      "input": "filter=price:eq:0000001",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "price", "op": "eq", "value": 1 }],
+          "sorts": []
+        }
+      },
+      "note": "Raw token is 7 chars but the canonical form '1' is 1 char — inside maxValueLength 5."
+    },
+    {
+      "name": "parse-number-canonical-form-too-long",
+      "op": "parse",
+      "input": "filter=price:eq:123456",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "VALUE_TOO_LONG", "field": "price", "op": "eq" }]
+      }
+    },
+    {
+      "name": "validate-max-sort-exceeded",
+      "op": "validate",
+      "spec": {
+        "filters": [],
+        "sorts": [
+          { "field": "price", "direction": "asc", "priority": 1 },
+          { "field": "stock", "direction": "asc", "priority": 2 },
+          { "field": "id", "direction": "asc", "priority": 3 }
+        ]
+      },
+      "expect": { "ok": false, "errors": [{ "code": "MAX_SORT_EXCEEDED" }] }
+    },
+    {
+      "name": "validate-value-too-long",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "name", "op": "eq", "value": "abcdef" }],
+        "sorts": []
+      },
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "VALUE_TOO_LONG", "field": "name", "op": "eq" }]
+      }
+    },
+    {
+      "name": "parse-cursor-too-long",
+      "op": "parse",
+      "input": "cursor=abcdef",
+      "expect": { "ok": false, "errors": [{ "code": "VALUE_TOO_LONG", "field": "cursor" }] }
+    },
+    {
+      "name": "parse-cursor-boundary-ok",
+      "op": "parse",
+      "input": "cursor=abcde",
+      "expect": { "ok": true, "spec": { "filters": [], "sorts": [], "cursor": "abcde" } }
+    }
+  ]
+}

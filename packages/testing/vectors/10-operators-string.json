@@ -1,0 +1,92 @@
+{
+  "suite": "operators-string",
+  "description": "contains/startsWith/endsWith: literal, case-sensitive, regex-metacharacter-safe (no pattern language ever reaches user input), applicable to string and enum kinds only.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "name": { "type": "string" },
+      "price": { "type": "number" },
+      "category": { "type": "enum", "values": ["phone", "laptop", "tablet"] }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-contains-case-sensitive",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "name", "op": "contains", "value": "kara" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "name": "Ankara" },
+        { "id": 2, "name": "kara" },
+        { "id": 3, "name": "KARAMAN" },
+        { "id": 4, "name": "a.c" },
+        { "id": 5, "name": null }
+      ],
+      "expect": { "ok": true, "ids": [1, 2] }
+    },
+    {
+      "name": "apply-startswith",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "name", "op": "startsWith", "value": "kara" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "name": "Ankara" },
+        { "id": 2, "name": "kara" },
+        { "id": 3, "name": "KARAMAN" }
+      ],
+      "expect": { "ok": true, "ids": [2] }
+    },
+    {
+      "name": "apply-endswith",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "name", "op": "endsWith", "value": "kara" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "name": "Ankara" },
+        { "id": 2, "name": "kara" },
+        { "id": 3, "name": "KARAMAN" }
+      ],
+      "expect": { "ok": true, "ids": [1, 2] }
+    },
+    {
+      "name": "apply-contains-regex-metacharacters-are-literal",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "name", "op": "contains", "value": "a.c" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "name": "abc" },
+        { "id": 2, "name": "a.c" },
+        { "id": 3, "name": "azc" }
+      ],
+      "expect": { "ok": true, "ids": [2] },
+      "note": "The dot matches only a literal dot — user input never becomes a RegExp (ADR-0006 §4)."
+    },
+    {
+      "name": "parse-string-op-on-number-rejected",
+      "op": "parse",
+      "input": "filter=price:contains:5",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_OPERATOR", "field": "price", "op": "contains" }] }
+    },
+    {
+      "name": "apply-contains-on-enum",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "category", "op": "contains", "value": "pho" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "category": "phone" },
+        { "id": 2, "category": "laptop" }
+      ],
+      "expect": { "ok": true, "ids": [1] }
+    },
+    {
+      "name": "parse-startswith-encoded-comma-value",
+      "op": "parse",
+      "input": "filter=name:startsWith:%2C",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "name", "op": "startsWith", "value": "," }],
+          "sorts": []
+        }
+      }
+    }
+  ]
+}

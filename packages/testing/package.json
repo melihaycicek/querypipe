@@ -1,0 +1,51 @@
+{
+  "name": "@querypipe/testing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Language-independent conformance vectors, vector runner and property-based invariant helpers for querypipe implementations. Reserved scoped name; not published in v0.1.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.17"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./vectors/*": "./vectors/*",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "vectors"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fast-check": "^3.23.1"
+  },
+  "peerDependencies": {
+    "querypipe": "workspace:^"
+  },
+  "devDependencies": {
+    "querypipe": "workspace:*",
+    "@types/node": "^20.17.9",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

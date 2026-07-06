@@ -1,0 +1,91 @@
+{
+  "suite": "pagination",
+  "description": "Canonical offset/limit pagination: slicing after filter+sort, limit 0 and out-of-range offsets, strict non-negative integers, cursor ⊕ offset (CONFLICTING_PAGINATION), cursor specs are not client-executable in v0.1.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-offset-limit-slice-after-sort",
+      "op": "apply",
+      "spec": {
+        "filters": [],
+        "sorts": [{ "field": "price", "direction": "asc", "priority": 1 }],
+        "offset": 2,
+        "limit": 2
+      },
+      "rows": [
+        { "id": 3, "price": 30 },
+        { "id": 1, "price": 10 },
+        { "id": 5, "price": 50 },
+        { "id": 2, "price": 20 },
+        { "id": 4, "price": 40 }
+      ],
+      "expect": { "ok": true, "ids": [3, 4] }
+    },
+    {
+      "name": "apply-limit-zero-is-empty-page",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [], "limit": 0 },
+      "rows": [{ "id": 1 }, { "id": 2 }],
+      "expect": { "ok": true, "ids": [] }
+    },
+    {
+      "name": "apply-offset-beyond-length",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [], "offset": 10 },
+      "rows": [{ "id": 1 }, { "id": 2 }],
+      "expect": { "ok": true, "ids": [] }
+    },
+    {
+      "name": "parse-non-numeric-limit-rejected",
+      "op": "parse",
+      "input": "limit=abc",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "limit" }] }
+    },
+    {
+      "name": "parse-negative-offset-rejected",
+      "op": "parse",
+      "input": "offset=-1",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "offset" }] }
+    },
+    {
+      "name": "parse-offset-and-cursor-conflict",
+      "op": "parse",
+      "input": "offset=10&cursor=abc",
+      "expect": { "ok": false, "errors": [{ "code": "CONFLICTING_PAGINATION" }] }
+    },
+    {
+      "name": "validate-offset-and-cursor-conflict",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "offset": 10, "cursor": "abc" },
+      "expect": { "ok": false, "errors": [{ "code": "CONFLICTING_PAGINATION" }] }
+    },
+    {
+      "name": "apply-cursor-spec-not-executable-in-v01",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [], "cursor": "abc" },
+      "rows": [{ "id": 1 }],
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "cursor" }] },
+      "note": "The spec itself is valid (parse/stringify carry cursors opaquely); client-side execution is a v0.2 keyset feature — refusing beats silently ignoring pagination."
+    },
+    {
+      "name": "validate-negative-limit-rejected",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "limit": -5 },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "limit" }] }
+    },
+    {
+      "name": "roundtrip-zero-pagination-values",
+      "op": "roundtrip-spec",
+      "spec": { "filters": [], "sorts": [], "offset": 0, "limit": 0 },
+      "expect": { "output": "offset=0&limit=0" }
+    }
+  ]
+}

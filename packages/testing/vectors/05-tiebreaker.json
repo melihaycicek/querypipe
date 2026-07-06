@@ -1,0 +1,106 @@
+{
+  "suite": "tiebreaker",
+  "description": "stableBy tie-breaker: injected as the final ascending sort during apply only (never into the spec/wire), idempotent, skipped when the field is already in the chain, and never injected into an empty sort chain.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "name": { "type": "string" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-injects-stableby-on-ties",
+      "op": "apply",
+      "spec": {
+        "filters": [],
+        "sorts": [{ "field": "name", "direction": "asc", "priority": 1 }]
+      },
+      "rows": [
+        { "id": 3, "name": "b", "price": 10 },
+        { "id": 1, "name": "a", "price": 10 },
+        { "id": 2, "name": "b", "price": 30 }
+      ],
+      "expect": { "ok": true, "ids": [1, 2, 3] },
+      "note": "Without injection the stable sort would keep input order among the 'b' ties ([1,3,2])."
+    },
+    {
+      "name": "apply-injection-idempotent-with-explicit-tiebreaker",
+      "op": "apply",
+      "spec": {
+        "filters": [],
+        "sorts": [
+          { "field": "name", "direction": "asc", "priority": 1 },
+          { "field": "id", "direction": "asc", "priority": 2 }
+        ]
+      },
+      "rows": [
+        { "id": 3, "name": "b", "price": 10 },
+        { "id": 1, "name": "a", "price": 10 },
+        { "id": 2, "name": "b", "price": 30 }
+      ],
+      "expect": { "ok": true, "ids": [1, 2, 3] },
+      "note": "Spelling the tie-breaker out explicitly yields the identical order — injection is idempotent."
+    },
+    {
+      "name": "apply-no-reinjection-when-stableby-elsewhere-in-chain",
+      "op": "apply",
+      "spec": {
+        "filters": [],
+        "sorts": [
+          { "field": "id", "direction": "desc", "priority": 1 },
+          { "field": "name", "direction": "asc", "priority": 2 }
+        ]
+      },
+      "rows": [
+        { "id": 3, "name": "b", "price": 10 },
+        { "id": 1, "name": "a", "price": 10 },
+        { "id": 2, "name": "b", "price": 30 }
+      ],
+      "expect": { "ok": true, "ids": [3, 2, 1] },
+      "note": "stableBy already present (any position, any direction) — nothing is appended."
+    },
+    {
+      "name": "apply-empty-sort-chain-never-injects",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "price", "op": "gt", "value": 5 }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 3, "name": "b", "price": 10 },
+        { "id": 1, "name": "a", "price": 10 },
+        { "id": 2, "name": "b", "price": 30 }
+      ],
+      "expect": { "ok": true, "ids": [3, 1, 2] },
+      "note": "Filter-only specs preserve input order — injecting into an empty chain would reorder unasked."
+    },
+    {
+      "name": "apply-numeric-ties-fall-to-stableby",
+      "op": "apply",
+      "spec": {
+        "filters": [],
+        "sorts": [{ "field": "price", "direction": "asc", "priority": 1 }]
+      },
+      "rows": [
+        { "id": 3, "name": "b", "price": 10 },
+        { "id": 1, "name": "a", "price": 10 },
+        { "id": 2, "name": "b", "price": 30 }
+      ],
+      "expect": { "ok": true, "ids": [1, 3, 2] }
+    },
+    {
+      "name": "stringify-injection-never-reaches-the-wire",
+      "op": "stringify",
+      "spec": {
+        "filters": [],
+        "sorts": [{ "field": "name", "direction": "asc", "priority": 1 }]
+      },
+      "expect": { "ok": true, "output": "sort=name:asc" },
+      "note": "Injection happens at execution time only; the spec and its canonical string never contain the injected column."
+    }
+  ]
+}

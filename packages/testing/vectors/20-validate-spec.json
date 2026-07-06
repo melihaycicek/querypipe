@@ -1,0 +1,130 @@
+{
+  "suite": "validate-spec",
+  "description": "validateQuerySpec over hand-built JSON specs: the kind discriminator is mandatory, kind:'group' is reserved until v0.3, values are typed JSON (never coerced), structural sort/pagination rules, multi-error collection.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "stock": { "type": "number" },
+      "name": { "type": "string" },
+      "category": { "type": "enum", "values": ["phone", "laptop", "tablet"] },
+      "deletedAt": { "type": "date" },
+      "secret": { "type": "string", "sortable": false, "filterable": false }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "validate-ok-full-spec",
+      "op": "validate",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "price", "op": "between", "value": [1000, 5000] },
+          { "kind": "condition", "field": "category", "op": "in", "value": ["phone", "laptop"] },
+          { "kind": "condition", "field": "deletedAt", "op": "isNull" }
+        ],
+        "sorts": [
+          { "field": "price", "direction": "desc", "priority": 1 },
+          { "field": "stock", "direction": "asc", "priority": 2 }
+        ],
+        "offset": 30,
+        "limit": 30
+      },
+      "expect": { "ok": true }
+    },
+    {
+      "name": "validate-group-node-reserved-until-v03",
+      "op": "validate",
+      "spec": {
+        "filters": [
+          {
+            "kind": "group",
+            "logic": "or",
+            "children": [{ "kind": "condition", "field": "price", "op": "eq", "value": 1 }]
+          }
+        ],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE" }] },
+      "note": "The type and wire format already carry groups (ADR-0001); v0.1 engines reject them with a structured error instead of half-applying."
+    },
+    {
+      "name": "validate-missing-kind-discriminator",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "field": "price", "op": "eq", "value": 1 }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE" }] }
+    },
+    {
+      "name": "validate-unknown-field",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "cost", "op": "eq", "value": 1 }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "UNKNOWN_FIELD", "field": "cost" }] }
+    },
+    {
+      "name": "validate-json-values-are-typed-never-coerced",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "price", "op": "eq", "value": "5" }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price", "op": "eq" }] },
+      "note": "\"5\" on a number field is INVALID_VALUE — the JSON layer never coerces (ADR-0011 §1)."
+    },
+    {
+      "name": "validate-priority-must-be-positive-integer",
+      "op": "validate",
+      "spec": {
+        "filters": [],
+        "sorts": [{ "field": "price", "direction": "asc", "priority": 0 }]
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price" }] }
+    },
+    {
+      "name": "validate-duplicate-sort-field",
+      "op": "validate",
+      "spec": {
+        "filters": [],
+        "sorts": [
+          { "field": "price", "direction": "asc", "priority": 1 },
+          { "field": "price", "direction": "desc", "priority": 2 }
+        ]
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price" }] }
+    },
+    {
+      "name": "validate-unsupported-version",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "version": 2 },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "version" }] }
+    },
+    {
+      "name": "validate-empty-cursor-rejected",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "cursor": "" },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "cursor" }] }
+    },
+    {
+      "name": "validate-collects-independent-errors",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "cost", "op": "eq", "value": 1 }],
+        "sorts": [{ "field": "secret", "direction": "asc", "priority": 1 }]
+      },
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "cost" },
+          { "code": "NOT_SORTABLE", "field": "secret" }
+        ]
+      }
+    }
+  ]
+}

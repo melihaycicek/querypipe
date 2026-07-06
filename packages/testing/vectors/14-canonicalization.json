@@ -1,0 +1,74 @@
+{
+  "suite": "canonicalization",
+  "description": "Lenient-in, canonical-out: omitted directions, non-canonical number spellings, over-encoding and shuffled segments all converge to one byte-stable canonical string (the runner re-canonicalizes every expected output to assert idempotency).",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "name": { "type": "string" },
+      "deletedAt": { "type": "date" },
+      "createdAt": { "type": "date", "alias": "created" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "canonicalize-bare-sort-direction",
+      "op": "canonicalize",
+      "input": "sort=price",
+      "expect": { "ok": true, "output": "sort=price:asc" }
+    },
+    {
+      "name": "canonicalize-number-decimal-point",
+      "op": "canonicalize",
+      "input": "filter=price:eq:5.0",
+      "expect": { "ok": true, "output": "filter=price:eq:5" },
+      "note": "Numbers canonicalize to minimal decimal — integral values carry no trailing .0 (ADR-0011 §2)."
+    },
+    {
+      "name": "canonicalize-number-leading-zeros",
+      "op": "canonicalize",
+      "input": "filter=price:eq:0000042",
+      "expect": { "ok": true, "output": "filter=price:eq:42" }
+    },
+    {
+      "name": "canonicalize-over-encoded-ascii",
+      "op": "canonicalize",
+      "input": "filter=name:eq:%41%42",
+      "expect": { "ok": true, "output": "filter=name:eq:AB" }
+    },
+    {
+      "name": "canonicalize-segment-order",
+      "op": "canonicalize",
+      "input": "limit=30&sort=price:desc&filter=deletedAt:notNull&offset=0",
+      "expect": { "ok": true, "output": "sort=price:desc&filter=deletedAt:notNull&offset=0&limit=30" }
+    },
+    {
+      "name": "canonicalize-space-and-plus-stay-literal",
+      "op": "canonicalize",
+      "input": "filter=name:eq:a+b c",
+      "expect": { "ok": true, "output": "filter=name:eq:a+b c" },
+      "note": "RFC 3986-style layer: '+' is a plus, space is a space; form-urlencoding transports must decode before parseQuery (ADR-0007 §2)."
+    },
+    {
+      "name": "canonicalize-alias-is-the-wire-name",
+      "op": "canonicalize",
+      "input": "sort=created:desc",
+      "expect": { "ok": true, "output": "sort=created:desc" }
+    },
+    {
+      "name": "parse-number-decimal-value",
+      "op": "parse",
+      "input": "filter=price:eq:5.0",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "price", "op": "eq", "value": 5 }],
+          "sorts": []
+        }
+      }
+    }
+  ]
+}

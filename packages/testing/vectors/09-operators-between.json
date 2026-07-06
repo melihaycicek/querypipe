@@ -1,0 +1,93 @@
+{
+  "suite": "operators-between",
+  "description": "between semantics: exactly two values, inclusive on both ends, reversed bounds match nothing (SQL parity — never auto-swapped), works over the date domain.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "deletedAt": { "type": "date" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-between-one-value-rejected",
+      "op": "parse",
+      "input": "filter=price:between:100",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price", "op": "between" }] }
+    },
+    {
+      "name": "parse-between-three-values-rejected",
+      "op": "parse",
+      "input": "filter=price:between:1,2,3",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price", "op": "between" }] }
+    },
+    {
+      "name": "apply-between-inclusive-bounds",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "price", "op": "between", "value": [2, 4] }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "price": 1 },
+        { "id": 2, "price": 2 },
+        { "id": 3, "price": 3 },
+        { "id": 4, "price": 4 },
+        { "id": 5, "price": 5 }
+      ],
+      "expect": { "ok": true, "ids": [2, 3, 4] }
+    },
+    {
+      "name": "apply-between-reversed-bounds-match-nothing",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "price", "op": "between", "value": [4, 2] }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "price": 1 },
+        { "id": 2, "price": 2 },
+        { "id": 3, "price": 3 },
+        { "id": 4, "price": 4 },
+        { "id": 5, "price": 5 }
+      ],
+      "expect": { "ok": true, "ids": [] },
+      "note": "SQL parity: BETWEEN 4 AND 2 is an empty range; bounds are never swapped silently."
+    },
+    {
+      "name": "validate-between-non-array-rejected",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "price", "op": "between", "value": 5 }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price", "op": "between" }] }
+    },
+    {
+      "name": "validate-between-wrong-length-rejected",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "price", "op": "between", "value": [1] }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price", "op": "between" }] }
+    },
+    {
+      "name": "parse-between-dates",
+      "op": "parse",
+      "input": "filter=deletedAt:between:2024-01-01,2024-12-31",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [
+            { "kind": "condition", "field": "deletedAt", "op": "between", "value": ["2024-01-01", "2024-12-31"] }
+          ],
+          "sorts": []
+        }
+      }
+    }
+  ]
+}

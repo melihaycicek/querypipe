@@ -1,0 +1,63 @@
+{
+  "suite": "stable-sort",
+  "description": "Stability without a tie-breaker: this schema declares NO stableBy, so equal sort keys must preserve input order (in both directions), and filter-only specs preserve input order entirely.",
+  "specVersion": 1,
+  "schema": {
+    "fields": {
+      "id": { "type": "number" },
+      "rank": { "type": "number" },
+      "name": { "type": "string" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-equal-keys-keep-input-order-asc",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [{ "field": "rank", "direction": "asc", "priority": 1 }] },
+      "rows": [
+        { "id": 1, "rank": 2, "name": "x" },
+        { "id": 2, "rank": 1, "name": "y" },
+        { "id": 3, "rank": 2, "name": "z" },
+        { "id": 4, "rank": 1, "name": "w" }
+      ],
+      "expect": { "ok": true, "ids": [2, 4, 1, 3] }
+    },
+    {
+      "name": "apply-equal-keys-keep-input-order-desc",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [{ "field": "rank", "direction": "desc", "priority": 1 }] },
+      "rows": [
+        { "id": 1, "rank": 2, "name": "x" },
+        { "id": 2, "rank": 1, "name": "y" },
+        { "id": 3, "rank": 2, "name": "z" },
+        { "id": 4, "rank": 1, "name": "w" }
+      ],
+      "expect": { "ok": true, "ids": [1, 3, 2, 4] },
+      "note": "Stability is about equal elements, not direction: within each rank group, input order is preserved."
+    },
+    {
+      "name": "apply-filter-only-preserves-input-order",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "name", "op": "notNull" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "rank": 2, "name": "x" },
+        { "id": 2, "rank": 1, "name": "y" },
+        { "id": 3, "rank": 2, "name": "z" },
+        { "id": 4, "rank": 1, "name": "w" }
+      ],
+      "expect": { "ok": true, "ids": [1, 2, 3, 4] }
+    },
+    {
+      "name": "apply-constant-key-is-identity",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [{ "field": "rank", "direction": "asc", "priority": 1 }] },
+      "rows": [
+        { "id": 9, "rank": 5 },
+        { "id": 7, "rank": 5 },
+        { "id": 8, "rank": 5 }
+      ],
+      "expect": { "ok": true, "ids": [9, 7, 8] }
+    }
+  ]
+}

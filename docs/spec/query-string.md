@@ -1,0 +1,84 @@
+# querypipe canonical query-string format (v1) — normative
+
+Decision record: [ADR-0007](../adr/0007-string-format.md). Example:
+
+```
+sort=price:desc,stock:asc&filter=price:between:1000,5000;category:in:phone,laptop;deletedAt:isNull&offset=30&limit=30
+```
+
+## Grammar
+
+```
+input        = "" | segment *("&" segment)
+segment      = "sort=" sortList | "filter=" filterList | "offset=" uint
+             | "limit=" uint | "cursor=" value | "version=" uint
+sortList     = sortItem *("," sortItem)
+sortItem     = field [":" direction [":" nullsToken]]
+direction    = "asc" | "desc"                     ; omitted direction ⇒ "asc" (accepted, non-canonical)
+nullsToken   = "nullsfirst" | "nullslast"
+filterList   = filterItem *(";" filterItem)
+filterItem   = field ":" op                       ; only for isNull / notNull
+             | field ":" op ":" valueList         ; every other operator
+valueList    = value *("," value)
+field        = identifier                          ; wire name: alias if declared, else field name
+identifier   = (ALPHA / "_") *(ALPHA / DIGIT / "_")
+op           = "eq"|"neq"|"gt"|"gte"|"lt"|"lte"|"in"|"notIn"|"between"
+             | "contains"|"startsWith"|"endsWith"|"isNull"|"notNull"
+uint         = 1*DIGIT                             ; base 10, no sign
+value        = percent-encoded text (see Escaping)
+```
+
+## Escaping (values and `cursor` only)
+
+- Mandatory encode set: `%`→`%25` `,`→`%2C` `;`→`%3B` `:`→`%3A` `&`→`%26` `=`→`%3D`. Canonical output encodes **exactly** this set, uppercase hex.
+- The decoder accepts any valid `%XX` sequence; multi-byte sequences must form valid UTF-8. A `%` not followed by two hex digits, or invalid UTF-8, ⇒ `INVALID_VALUE`.
+- `+` is a literal plus; space is a literal space (RFC 3986-style, **not** form-urlencoding). Transports that encode space as `+` must decode first.
+- Field, operator, direction and nulls tokens are matched **raw** (never decoded) and case-sensitively.
+
+## Value typing (by the field's schema kind)
+
+| Kind | Accepted token | Spec value |
+| ---- | -------------- | ---------- |
+| number | `-?digits[.digits]` (strict; no exponent, no `NaN`/`Infinity`) | JSON number |
+| string | any decoded text (may be empty) | string |
+| boolean | `true` / `false` (lowercase only) | boolean |
+| date | `YYYY-MM-DD` or ISO-8601 datetime **with mandatory `Z`/offset**, must be a real date | the validated string, kept as given |
+| enum | one of the declared values (case-sensitive) | string |
+| custom | any decoded text | string |
+
+Anything else ⇒ `INVALID_VALUE`.
+
+Exception: `contains`/`startsWith`/`endsWith` values are plain **string fragments** regardless of the field's kind — an enum field's `contains` value need not be an enum member, and value-domain hooks (Standard Schema, ADR-0009) do not run on fragments.
+
+## Operator arity
+
+| Operators | Value parts |
+| --------- | ----------- |
+| `isNull`, `notNull` | none — a third `:` part is `INVALID_VALUE` |
+| `between` | exactly 2 |
+| `in`, `notIn` | ≥ 1 |
+| all others | exactly 1 |
+
+## Operator applicability (by field kind)
+
+| Operators | Applicable kinds |
+| --------- | ---------------- |
+| `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between`, `in`, `notIn` | number, string, date, boolean, enum |
+| `contains`, `startsWith`, `endsWith` | string, enum |
+| `isNull`, `notNull` | all (custom included) |
+
+A valid operator applied to an inapplicable kind ⇒ `INVALID_OPERATOR`. `custom` values are not wire-portable, so custom fields are null-checks-only in v0.1 (ADR-0008 §6).
+
+## Strictness rules
+
+Accepted leniencies (parse only; output is always canonical): segments in any order; omitted sort direction; lowercase hex and over-encoding in percent-escapes.
+
+Rejections: empty segments or list items (`sort=`, `filter=a:eq:1;;b:eq:2`, trailing separators) ⇒ `INVALID_VALUE`; duplicate segment keys ⇒ `INVALID_VALUE`; duplicate sort fields ⇒ `INVALID_VALUE`; malformed segment (no `=`) ⇒ `INVALID_VALUE`; unknown segment key (e.g. `page=`) ⇒ `UNKNOWN_FIELD`; unknown field/alias ⇒ `UNKNOWN_FIELD`; non-sortable in `sort` ⇒ `NOT_SORTABLE`; non-filterable in `filter` ⇒ `NOT_FILTERABLE`; unknown operator token, or an operator not applicable to the field kind ⇒ `INVALID_OPERATOR`; `version` ≠ 1 ⇒ `INVALID_VALUE`; `offset` and `cursor` together ⇒ `CONFLICTING_PAGINATION`. Errors are collected, not short-circuited (input order).
+
+## Canonical output (`stringifyQuery`)
+
+1. Segment order: `sort`, `filter`, `offset`, `limit`, `cursor`, `version`. Empty segments omitted; empty spec ⇒ `""`.
+2. Sorts ordered by `(priority, array index)`; direction always explicit; nulls token only when set.
+3. Filters in spec order (never re-sorted).
+4. Values encoded with exactly the six-character set, uppercase hex; numbers in minimal decimal (integers without `.0`); dates exactly as stored.
+5. Laws: `parse(stringify(spec))` deep-equals every canonical spec; `stringify(parse(input))` is idempotent for every accepted input.

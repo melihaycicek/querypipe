@@ -1,0 +1,22 @@
+{
+  "name": "querypipe-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "build": "pnpm --filter querypipe --filter \"@querypipe/*\" -r build",
+    "test": "pnpm --filter querypipe --filter \"@querypipe/*\" -r test",
+    "typecheck": "pnpm --filter querypipe --filter \"@querypipe/*\" -r typecheck",
+    "check:contract": "tsc --noEmit --strict --target es2020 --moduleResolution bundler --module esnext docs/api/public-api.d.ts",
+    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm check:contract",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "typescript": "^5.7.3"
+  }
+}

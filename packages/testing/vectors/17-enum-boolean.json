@@ -1,0 +1,91 @@
+{
+  "suite": "enum-boolean",
+  "description": "Enum fields sort by DECLARATION order (SQL enum semantics — not alphabetical), unknown enum row values degrade to the NULL class, enum/boolean tokens are case-sensitive on the wire.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "category": { "type": "enum", "values": ["phone", "laptop", "tablet"] },
+      "active": { "type": "boolean" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-enum-sorts-by-declaration-order",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [{ "field": "category", "direction": "asc", "priority": 1 }] },
+      "rows": [
+        { "id": 1, "category": "tablet" },
+        { "id": 2, "category": "phone" },
+        { "id": 3, "category": "laptop" }
+      ],
+      "expect": { "ok": true, "ids": [2, 3, 1] },
+      "note": "Declaration order phone < laptop < tablet. Alphabetical order would give [3, 2, 1] — this case distinguishes them."
+    },
+    {
+      "name": "apply-unknown-enum-row-value-is-null-class",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [{ "field": "category", "direction": "asc", "priority": 1 }] },
+      "rows": [
+        { "id": 1, "category": "tablet" },
+        { "id": 2, "category": "phone" },
+        { "id": 3, "category": "laptop" },
+        { "id": 4, "category": "desk" }
+      ],
+      "expect": { "ok": true, "ids": [2, 3, 1, 4] },
+      "note": "'desk' is outside the declared set — NULL class, sorted last on asc (ADR-0008 §2)."
+    },
+    {
+      "name": "parse-boolean-true",
+      "op": "parse",
+      "input": "filter=active:eq:true",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "active", "op": "eq", "value": true }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-boolean-uppercase-rejected",
+      "op": "parse",
+      "input": "filter=active:eq:TRUE",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "active", "op": "eq" }] }
+    },
+    {
+      "name": "parse-enum-case-sensitive",
+      "op": "parse",
+      "input": "filter=category:eq:Phone",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "category", "op": "eq" }] }
+    },
+    {
+      "name": "apply-boolean-eq-false",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "active", "op": "eq", "value": false }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "active": false },
+        { "id": 2, "active": true },
+        { "id": 3, "active": null }
+      ],
+      "expect": { "ok": true, "ids": [1] }
+    },
+    {
+      "name": "roundtrip-boolean-and-enum-values",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "active", "op": "eq", "value": true },
+          { "kind": "condition", "field": "category", "op": "in", "value": ["phone", "tablet"] }
+        ],
+        "sorts": []
+      },
+      "expect": { "output": "filter=active:eq:true;category:in:phone,tablet" }
+    }
+  ]
+}

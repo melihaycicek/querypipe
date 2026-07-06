@@ -1,0 +1,98 @@
+{
+  "suite": "dates",
+  "description": "Date semantics: comparison over epoch instants (offset-aware — different ISO spellings of the same instant are equal), date-only values are UTC midnight, timezone-less datetimes and impossible dates are rejected, unparseable row values degrade to the NULL class.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "deletedAt": { "type": "date" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-sort-by-instant-with-null-class-tail",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [{ "field": "deletedAt", "direction": "asc", "priority": 1 }] },
+      "rows": [
+        { "id": 1, "deletedAt": "2024-01-15T10:00:00Z" },
+        { "id": 2, "deletedAt": "2024-01-15T09:00:00+02:00" },
+        { "id": 3, "deletedAt": "2024-01-14" },
+        { "id": 4, "deletedAt": "not-a-date" },
+        { "id": 5, "deletedAt": null }
+      ],
+      "expect": { "ok": true, "ids": [3, 2, 1, 4, 5] },
+      "note": "id 2 is 07:00Z (offset-aware) so it sorts before id 1; 'not-a-date' is NULL class; NULL ties fall to id asc."
+    },
+    {
+      "name": "apply-gt-instant",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "gt", "value": "2024-01-15T08:00:00Z" }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "deletedAt": "2024-01-15T10:00:00Z" },
+        { "id": 2, "deletedAt": "2024-01-15T09:00:00+02:00" },
+        { "id": 3, "deletedAt": null }
+      ],
+      "expect": { "ok": true, "ids": [1] },
+      "note": "id 2 is 07:00Z — not after 08:00Z."
+    },
+    {
+      "name": "apply-eq-across-iso-spellings-of-the-same-instant",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "eq", "value": "2024-01-15T09:00:00+02:00" }],
+        "sorts": []
+      },
+      "rows": [{ "id": 1, "deletedAt": "2024-01-15T07:00:00Z" }],
+      "expect": { "ok": true, "ids": [1] }
+    },
+    {
+      "name": "apply-between-dates-inclusive",
+      "op": "apply",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "deletedAt", "op": "between", "value": ["2024-01-14", "2024-01-15T09:00:00Z"] }
+        ],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "deletedAt": "2024-01-15T10:00:00Z" },
+        { "id": 2, "deletedAt": "2024-01-15T09:00:00+02:00" },
+        { "id": 3, "deletedAt": "2024-01-14" },
+        { "id": 4, "deletedAt": null }
+      ],
+      "expect": { "ok": true, "ids": [2, 3] },
+      "note": "Date-only lower bound is UTC midnight and inclusive (id 3 equals it exactly)."
+    },
+    {
+      "name": "parse-timezone-less-datetime-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:eq:2024-01-15T10%3A00%3A00",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] },
+      "note": "Local-time interpretation diverges across platforms — Z/offset is mandatory (ADR-0011 §3)."
+    },
+    {
+      "name": "parse-impossible-date-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:eq:2024-13-45",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] },
+      "note": "Syntax alone is not enough — the value must be a real date."
+    },
+    {
+      "name": "roundtrip-date-values-kept-as-given",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "deletedAt", "op": "between", "value": ["2024-01-14", "2024-01-15T09:00:00+02:00"] }
+        ],
+        "sorts": []
+      },
+      "expect": { "output": "filter=deletedAt:between:2024-01-14,2024-01-15T09%3A00%3A00+02%3A00" },
+      "note": "Validated date strings are opaque — never normalized across ISO variants; ':' inside them is percent-encoded like any value."
+    }
+  ]
+}

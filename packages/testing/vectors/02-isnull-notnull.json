@@ -1,0 +1,108 @@
+{
+  "suite": "isnull-notnull",
+  "description": "isNull/notNull take no value on any path (string format and JSON spec); apply matches null and missing properties for isNull, present values for notNull.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "name": { "type": "string" },
+      "deletedAt": { "type": "date" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-isnull",
+      "op": "parse",
+      "input": "filter=deletedAt:isNull",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "deletedAt", "op": "isNull" }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-notnull",
+      "op": "parse",
+      "input": "filter=deletedAt:notNull",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "deletedAt", "op": "notNull" }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-isnull-with-value-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:isNull:true",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "isNull" }]
+      }
+    },
+    {
+      "name": "parse-notnull-trailing-colon-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:notNull:",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "notNull" }]
+      },
+      "note": "A third part exists (empty string) — isNull/notNull items must have exactly two parts."
+    },
+    {
+      "name": "validate-isnull-with-value-rejected",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "isNull", "value": true }],
+        "sorts": []
+      },
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "isNull" }]
+      }
+    },
+    {
+      "name": "validate-isnull-ok",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "isNull" }],
+        "sorts": []
+      },
+      "expect": { "ok": true }
+    },
+    {
+      "name": "apply-isnull-matches-null-and-missing",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "isNull" }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "deletedAt": null },
+        { "id": 2 },
+        { "id": 3, "deletedAt": "2024-01-01" }
+      ],
+      "expect": { "ok": true, "ids": [1, 2] }
+    },
+    {
+      "name": "apply-notnull-matches-present-only",
+      "op": "apply",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "notNull" }],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "deletedAt": null },
+        { "id": 2 },
+        { "id": 3, "deletedAt": "2024-01-01" }
+      ],
+      "expect": { "ok": true, "ids": [3] }
+    }
+  ]
+}

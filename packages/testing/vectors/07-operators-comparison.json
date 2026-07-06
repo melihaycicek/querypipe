@@ -1,0 +1,107 @@
+{
+  "suite": "operators-comparison",
+  "description": "eq/neq/gt/gte/lt/lte semantics: SQL three-valued logic collapsed to no-match (NULL rows never match, neq included), default string comparison is UTF-16 code-unit order, booleans compare false < true.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "name": { "type": "string" },
+      "active": { "type": "boolean" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-eq-number",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "price", "op": "eq", "value": 200 }], "sorts": [] },
+      "rows": [
+        { "id": 1, "price": 100, "name": "alpha" },
+        { "id": 2, "price": 200, "name": "Beta" },
+        { "id": 3, "price": 300, "name": "beta" },
+        { "id": 4, "price": null, "name": null },
+        { "id": 5, "name": "gamma" }
+      ],
+      "expect": { "ok": true, "ids": [2] }
+    },
+    {
+      "name": "apply-neq-excludes-null-rows",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "price", "op": "neq", "value": 200 }], "sorts": [] },
+      "rows": [
+        { "id": 1, "price": 100 },
+        { "id": 2, "price": 200 },
+        { "id": 3, "price": 300 },
+        { "id": 4, "price": null },
+        { "id": 5 }
+      ],
+      "expect": { "ok": true, "ids": [1, 3] },
+      "note": "SQL parity: NULL != x is UNKNOWN, so null/missing rows are excluded — not matched."
+    },
+    {
+      "name": "apply-gt-gte-boundaries",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "price", "op": "gt", "value": 100 }], "sorts": [] },
+      "rows": [
+        { "id": 1, "price": 100 },
+        { "id": 2, "price": 200 },
+        { "id": 3, "price": 300 }
+      ],
+      "expect": { "ok": true, "ids": [2, 3] }
+    },
+    {
+      "name": "apply-lte-boundary",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "price", "op": "lte", "value": 200 }], "sorts": [] },
+      "rows": [
+        { "id": 1, "price": 100 },
+        { "id": 2, "price": 200 },
+        { "id": 3, "price": 300 }
+      ],
+      "expect": { "ok": true, "ids": [1, 2] }
+    },
+    {
+      "name": "apply-gt-string-code-unit-order",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "name", "op": "gt", "value": "Beta" }], "sorts": [] },
+      "rows": [
+        { "id": 1, "price": 100, "name": "alpha" },
+        { "id": 2, "price": 200, "name": "Beta" },
+        { "id": 3, "price": 300, "name": "beta" },
+        { "id": 4, "price": null, "name": null },
+        { "id": 5, "name": "gamma" }
+      ],
+      "expect": { "ok": true, "ids": [1, 3, 5] },
+      "note": "Default comparison is UTF-16 code-unit order: every lowercase letter > 'B'. Locale collation is per-field opt-in and excluded from vectors (ADR-0008)."
+    },
+    {
+      "name": "apply-boolean-false-lt-true",
+      "op": "apply",
+      "spec": { "filters": [{ "kind": "condition", "field": "active", "op": "gt", "value": false }], "sorts": [] },
+      "rows": [
+        { "id": 1, "active": false },
+        { "id": 2, "active": true },
+        { "id": 3, "active": null }
+      ],
+      "expect": { "ok": true, "ids": [2] }
+    },
+    {
+      "name": "parse-eq-then-apply-consistency",
+      "op": "parse",
+      "input": "filter=price:gte:200;price:lte:300",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [
+            { "kind": "condition", "field": "price", "op": "gte", "value": 200 },
+            { "kind": "condition", "field": "price", "op": "lte", "value": 300 }
+          ],
+          "sorts": []
+        }
+      },
+      "note": "The same field may appear in multiple conditions (a range spelled as two ANDed conditions)."
+    }
+  ]
+}

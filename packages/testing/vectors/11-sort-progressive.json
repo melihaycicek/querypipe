@@ -1,0 +1,107 @@
+{
+  "suite": "sort-progressive",
+  "description": "Multi-column progressive sort: priorities are positional on the wire (1..n), multi-column apply ordering, nulls tokens, structural sort-item errors.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "stock": { "type": "number" },
+      "category": { "type": "enum", "values": ["phone", "laptop", "tablet"] }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-three-column-chain",
+      "op": "parse",
+      "input": "sort=category:asc,price:desc,id:asc",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [
+            { "field": "category", "direction": "asc", "priority": 1 },
+            { "field": "price", "direction": "desc", "priority": 2 },
+            { "field": "id", "direction": "asc", "priority": 3 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "apply-two-column-ordering",
+      "op": "apply",
+      "spec": {
+        "filters": [],
+        "sorts": [
+          { "field": "category", "direction": "asc", "priority": 1 },
+          { "field": "price", "direction": "desc", "priority": 2 }
+        ]
+      },
+      "rows": [
+        { "id": 1, "category": "phone", "price": 100 },
+        { "id": 2, "category": "laptop", "price": 300 },
+        { "id": 3, "category": "phone", "price": 300 },
+        { "id": 4, "category": "laptop", "price": 100 }
+      ],
+      "expect": { "ok": true, "ids": [3, 1, 2, 4] },
+      "note": "Enum ordering is declaration order: phone < laptop (not alphabetical). Within each, price desc."
+    },
+    {
+      "name": "stringify-orders-by-priority-not-array-position",
+      "op": "stringify",
+      "spec": {
+        "filters": [],
+        "sorts": [
+          { "field": "stock", "direction": "asc", "priority": 2 },
+          { "field": "price", "direction": "desc", "priority": 1 }
+        ]
+      },
+      "expect": { "ok": true, "output": "sort=price:desc,stock:asc" },
+      "note": "A spec whose array order differs from priority order is valid but non-canonical; stringify orders by (priority, array index). Law 1a (roundtrip-spec) applies to canonical specs only — re-parsing this output yields the canonical form pinned by the next case."
+    },
+    {
+      "name": "parse-assigns-priorities-by-wire-position",
+      "op": "parse",
+      "input": "sort=price:desc,stock:asc",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [
+            { "field": "price", "direction": "desc", "priority": 1 },
+            { "field": "stock", "direction": "asc", "priority": 2 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "parse-nulls-tokens-with-priorities",
+      "op": "parse",
+      "input": "sort=price:desc:nullslast,stock:asc",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [
+            { "field": "price", "direction": "desc", "nulls": "last", "priority": 1 },
+            { "field": "stock", "direction": "asc", "priority": 2 }
+          ]
+        }
+      }
+    },
+    {
+      "name": "parse-four-part-sort-item-rejected",
+      "op": "parse",
+      "input": "sort=price:asc:nullslast:x",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price" }] }
+    },
+    {
+      "name": "parse-invalid-nulls-token-rejected",
+      "op": "parse",
+      "input": "sort=price:asc:nullsmiddle",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price" }] }
+    }
+  ]
+}

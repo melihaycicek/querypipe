@@ -1,0 +1,77 @@
+{
+  "name": "querypipe",
+  "version": "0.1.0",
+  "description": "A typed query behavior engine for filtering, progressive multi-sorting, pagination and backend-safe query generation.",
+  "license": "MIT",
+  "keywords": [
+    "query",
+    "filter",
+    "sort",
+    "multi-sort",
+    "progressive-sort",
+    "pagination",
+    "queryspec",
+    "query-builder",
+    "query-string",
+    "url-state",
+    "backend-safe",
+    "typescript",
+    "type-safe",
+    "zero-dependency"
+  ],
+  "homepage": "https://github.com/melihaycicek/querypipe#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/melihaycicek/querypipe.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/melihaycicek/querypipe/issues"
+  },
+  "author": "melihaycicek",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.17"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "size": "tsup --config tsup.size.config.ts && node scripts/gzip-size.mjs",
+    "prepublishOnly": "tsup"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.4",
+    "publint": "^0.2.12",
+    "terser": "^5.48.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

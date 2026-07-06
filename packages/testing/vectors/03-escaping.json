@@ -1,0 +1,114 @@
+{
+  "suite": "escaping",
+  "description": "Percent-encoding: the six-character mandatory set (% , ; : & =) round-trips losslessly; decoder accepts any valid %XX (lowercase hex, over-encoding) and canonicalizes; malformed escapes are INVALID_VALUE; space and + are literal.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "name": { "type": "string" },
+      "price": { "type": "number" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "stringify-structural-chars",
+      "op": "stringify",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "name", "op": "eq", "value": "50%,;:off&=x" }],
+        "sorts": []
+      },
+      "expect": { "ok": true, "output": "filter=name:eq:50%25%2C%3B%3Aoff%26%3Dx" }
+    },
+    {
+      "name": "parse-structural-chars",
+      "op": "parse",
+      "input": "filter=name:eq:50%25%2C%3B%3Aoff%26%3Dx",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "name", "op": "eq", "value": "50%,;:off&=x" }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "roundtrip-unicode-space-plus-literal",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "name", "op": "eq", "value": "café +50% şeker" }],
+        "sorts": []
+      },
+      "expect": { "output": "filter=name:eq:café +50%25 şeker" },
+      "note": "Only the six-character set is encoded canonically: non-ASCII, space and + stay literal (RFC 3986-style layer, not form-urlencoding)."
+    },
+    {
+      "name": "canonicalize-lowercase-hex-and-overencoding",
+      "op": "canonicalize",
+      "input": "filter=name:eq:a%2cb%41",
+      "expect": { "ok": true, "output": "filter=name:eq:a%2CbA" },
+      "note": "%2c (lowercase) and %41 (over-encoded 'A') are accepted and re-emitted canonically."
+    },
+    {
+      "name": "parse-truncated-percent-rejected",
+      "op": "parse",
+      "input": "filter=name:eq:a%2",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "INVALID_VALUE", "field": "name", "op": "eq" }]
+      }
+    },
+    {
+      "name": "parse-invalid-hex-rejected",
+      "op": "parse",
+      "input": "filter=name:eq:a%GGb",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "INVALID_VALUE", "field": "name", "op": "eq" }]
+      }
+    },
+    {
+      "name": "parse-raw-colon-in-value-rejected",
+      "op": "parse",
+      "input": "filter=name:eq:a:b",
+      "expect": {
+        "ok": false,
+        "errors": [{ "code": "INVALID_VALUE", "field": "name", "op": "eq" }]
+      },
+      "note": "Raw ':' is structural — a filter item has at most three parts; values must encode ':' as %3A."
+    },
+    {
+      "name": "parse-encoded-percent-value",
+      "op": "parse",
+      "input": "filter=name:contains:100%25",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "name", "op": "contains", "value": "100%" }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "roundtrip-in-list-encoded-commas",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "name", "op": "in", "value": ["a,b", "c"] }],
+        "sorts": []
+      },
+      "expect": { "output": "filter=name:in:a%2Cb,c" },
+      "note": "Raw ',' separates list values; a ',' inside a value must be %2C."
+    },
+    {
+      "name": "roundtrip-empty-string-value",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "name", "op": "eq", "value": "" }],
+        "sorts": []
+      },
+      "expect": { "output": "filter=name:eq:" },
+      "note": "Empty value tokens are legal string values (structural list items must not be empty, values may be)."
+    }
+  ]
+}

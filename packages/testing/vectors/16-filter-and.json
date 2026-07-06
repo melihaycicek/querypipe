@@ -1,0 +1,86 @@
+{
+  "suite": "filter-and",
+  "description": "Root-level AND semantics (v0.1): all conditions must match, the same field composes as a range across two conditions, contradictions yield the empty set.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" },
+      "category": { "type": "enum", "values": ["phone", "laptop", "tablet"] },
+      "deletedAt": { "type": "date" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "apply-three-conditions-and",
+      "op": "apply",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "price", "op": "between", "value": [100, 200] },
+          { "kind": "condition", "field": "category", "op": "eq", "value": "phone" },
+          { "kind": "condition", "field": "deletedAt", "op": "isNull" }
+        ],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "price": 150, "category": "phone", "deletedAt": null },
+        { "id": 2, "price": 250, "category": "phone" },
+        { "id": 3, "price": 150, "category": "laptop", "deletedAt": "2024-01-01T00:00:00Z" },
+        { "id": 4, "price": 150, "category": "phone", "deletedAt": "2024-05-01" }
+      ],
+      "expect": { "ok": true, "ids": [1] }
+    },
+    {
+      "name": "apply-same-field-composes-as-a-range",
+      "op": "apply",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "price", "op": "gte", "value": 150 },
+          { "kind": "condition", "field": "price", "op": "lte", "value": 150 }
+        ],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "price": 150 },
+        { "id": 2, "price": 250 },
+        { "id": 3, "price": 150 },
+        { "id": 4, "price": 150 }
+      ],
+      "expect": { "ok": true, "ids": [1, 3, 4] }
+    },
+    {
+      "name": "apply-contradiction-is-empty",
+      "op": "apply",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "price", "op": "gt", "value": 200 },
+          { "kind": "condition", "field": "price", "op": "lt", "value": 100 }
+        ],
+        "sorts": []
+      },
+      "rows": [
+        { "id": 1, "price": 50 },
+        { "id": 2, "price": 300 }
+      ],
+      "expect": { "ok": true, "ids": [] }
+    },
+    {
+      "name": "parse-duplicate-field-conditions-allowed",
+      "op": "parse",
+      "input": "filter=price:gte:150;price:lte:150",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [
+            { "kind": "condition", "field": "price", "op": "gte", "value": 150 },
+            { "kind": "condition", "field": "price", "op": "lte", "value": 150 }
+          ],
+          "sorts": []
+        }
+      },
+      "note": "Unlike sort fields, filter conditions may repeat a field (each counts toward maxFilters)."
+    }
+  ]
+}
