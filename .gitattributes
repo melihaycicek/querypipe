@@ -1,0 +1,10 @@
+# Normalize line endings to LF for all text; keeps diffs clean across platforms.
+* text=auto eol=lf
+
+# Binary/asset types git should never touch.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
