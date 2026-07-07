@@ -1,0 +1,63 @@
+---
+title: Introduction
+description: querypipe is a typed query behavior engine for filtering, progressive multi-sorting, pagination and backend-safe query generation.
+---
+
+querypipe manages the **contract** applied to your data — a single type-safe `QuerySpec` for
+filters, progressive (additive) multi-sort, and pagination — never the data itself.
+
+It is **not** a UI library, **not** an ORM, and **not** a state manager. It doesn't compete with
+[nuqs](https://nuqs.47ng.com/) (URL state), [TanStack Table](https://tanstack.com/table) (UI
+state) or [api-query-params](https://github.com/loris/api-query-params) (Mongo parsing) — **it's
+the bridge between them.** One schema, one spec, one canonical wire format shared by client and
+server (and, on the roadmap, by the `querypipe-java` port — the spec and JSON wire format are
+language-independent by design).
+
+```
+   URL / UI state                 querypipe                    Backend
+ ┌────────────────┐    parse    ┌────────────┐   generate   ┌──────────────┐
+ │  ?sort=price…  │ ─────────▶  │  QuerySpec │  ──────────▶ │ ORDER BY /   │
+ │  TanStack sort │ ◀───────── │  (typed,   │  ◀────────── │ Prisma / SQL │
+ │  nuqs params   │  stringify  │  frozen)   │   validate   │ (param-safe) │
+ └────────────────┘             └────────────┘              └──────────────┘
+                                      │ apply
+                                      ▼
+                             client-side rows (stable,
+                             SQL ORDER BY-equivalent)
+```
+
+## Why querypipe
+
+- **Type-safe end to end.** Field names are literal types inferred from the schema
+  (`sort("pricee")` is a *compile* error); operator/value pairs are checked at the type level
+  (`between` wants `[T, T]`, `isNull` accepts no value); `enumField` narrows values to a union.
+- **Progressive sorting as a first-class semantic.** `sort` resets, `thenSort` appends **without
+  disturbing** prior priorities, `insertSortAfter` / `removeSort` / `toggleSortDirection` edit
+  the chain in place; priorities renormalize to `1..n` on every step.
+- **Backend-safe by default.** A mandatory field whitelist (there is **no** schema-less parse),
+  guard limits, no user input ever reaching a `RegExp`, and a structured **multi-error**
+  `Result` — parse and validate **never throw**.
+- **Deterministic.** Canonical, byte-stable `stringify`; stable sort with an automatically
+  injected unique tie-breaker; a fixed SQL `ORDER BY` reference model (PostgreSQL NULL
+  semantics).
+- **Tiny & dependency-free.** Zero runtime dependencies, ESM + CJS, fully tree-shakable,
+  ≈ 7.4 kB min+gzip.
+
+## Design priorities
+
+On any trade-off the priority order is:
+
+1. Java portability
+2. Type safety
+3. Bundle size
+4. API ergonomics
+
+The `QuerySpec` shape and JSON wire format are **frozen**: future features (OR groups in v0.3,
+adapters and dialects in v0.2) are behavior unlocks, not wire-format changes.
+
+## Where to go next
+
+- [Installation & quick start](/docs/getting-started/installation)
+- [The 60-second tour](/docs/getting-started/tour)
+- [The QuerySpec](/docs/concepts/queryspec) — the frozen contract itself
+- [Playground](/playground) — every widget runs the real package in your browser

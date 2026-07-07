@@ -1,0 +1,60 @@
+---
+title: Sorting semantics & NULLs
+description: The SQL ORDER BY reference model — PostgreSQL NULL semantics, per-kind comparison, stableBy tie-breaker.
+---
+
+Client-side `apply` and the future v0.2 adapters share **one** fixed reference model, so the
+same spec produces the same total order everywhere. The model is SQL `ORDER BY` with
+PostgreSQL NULL semantics.
+
+## NULL handling
+
+- NULL sorts as **largest**: ascending puts NULLs last, descending puts NULLs first — exactly
+  PostgreSQL's default.
+- An explicit `nulls: "first" | "last"` on a sort condition is **absolute**: it overrides the
+  direction-derived placement.
+
+```ts
+import { createQuery, dateField, numberField } from "querypipe";
+
+const q = createQuery({
+  fields: { id: numberField(), shippedAt: dateField() },
+  stableBy: "id",
+});
+
+q.sort("shippedAt", "asc");                    // NULLs last (Postgres default)
+q.sort("shippedAt", "asc", { nulls: "first" }); // NULLs first, absolutely
+// wire form: sort=shippedAt:asc:nullsfirst
+```
+
+## The NULL class
+
+Row values are normalized before comparison; these all belong to the NULL class:
+
+- `null` and `undefined` (including missing properties)
+- `NaN` numbers
+- unparseable date values
+- out-of-enum or mistyped values (a string in a number column, etc.)
+
+Everything in the NULL class ties with itself and is placed by the NULL rule above.
+
+## Per-kind comparison
+
+| Kind | Order |
+| --- | --- |
+| `number` | numeric |
+| `string` | UTF-16 code-unit order by default; opt-in `Intl.Collator` via `stringField({ locale, sensitivity })` |
+| `boolean` | `false < true` |
+| `date` | epoch milliseconds (row values parsed leniently; spec values pre-validated) |
+| `enum` | **declaration order** of the enum values |
+| `custom` | your comparator — never called with NULL-class values (they're handled by the model first) |
+
+## The stableBy tie-breaker
+
+Declaring `stableBy: "id"` injects `id asc` as the final sort column during `apply` (and in
+adapter output in v0.2) — **never into the spec itself**. Combined with a stable sort, this
+makes every result a deterministic total order: same spec, same rows, same bytes, every time.
+
+Two rows tying on every user sort column? The tie-breaker decides, identically on the client
+and (v0.2) in SQL. Watch it happen in the [playground](/playground) — sort the tasks preset by
+`priority` then `dueAt`, and the rows with identical values keep a stable `id` order.

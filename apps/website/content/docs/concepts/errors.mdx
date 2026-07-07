@@ -1,0 +1,68 @@
+---
+title: Error model
+description: Result-based structured errors — the data path never throws; misuse throws TypeError.
+---
+
+querypipe draws a mechanical line between two failure regimes:
+
+- **Data errors** (untrusted input: strings, external specs) → returned as a structured,
+  multi-error `Result`. The data path **never throws**.
+- **Programmer misuse** (invalid schema definitions, calling builder methods wrong) → throws
+  `TypeError`, because that's a bug in your code, not a condition to handle.
+
+## The Result
+
+```ts
+import { isErr, isOk, type QueryResult, type QuerySpec } from "querypipe";
+
+declare const result: QueryResult<QuerySpec>;
+
+if (isOk(result)) {
+  result.value; // QuerySpec — whitelisted, guard-limited, injection-safe
+} else if (isErr(result)) {
+  result.errors; // readonly QueryError[] — every problem, in one pass
+}
+```
+
+Errors are **collected, not short-circuited** — a request with three problems yields three
+errors in input order, so API consumers can fix everything at once.
+
+## QueryError
+
+```ts
+import type { QueryError } from "querypipe";
+
+declare const error: QueryError;
+error.code;     // one of the closed set below
+error.field;    // internal field name, or the offending raw token / segment key
+error.op;       // raw operator token (may be an invalid one)
+error.message;  // human-readable; wording is NOT part of the conformance contract
+error.position; // 0-based UTF-16 index into the exact parse input; best effort
+```
+
+`position` is what powers the wavy underlines in the demos on this site — try the live widget:
+
+<ErrorAnatomyDemo />
+
+## The closed code set
+
+| Code | Meaning |
+| --- | --- |
+| `UNKNOWN_FIELD` | Field/alias (or segment key) not in the schema whitelist. |
+| `NOT_SORTABLE` | Declared field with `sortable: false` used in `sort=`. |
+| `NOT_FILTERABLE` | Declared field with `filterable: false` used in `filter=`. |
+| `INVALID_OPERATOR` | Unknown operator token, or a valid operator applied to an inapplicable field kind. |
+| `INVALID_VALUE` | Malformed value, arity mismatch, empty segments/items, duplicate segments, group nodes (v0.1), `version` ≠ 1, bad percent-escapes. |
+| `MAX_SORT_EXCEEDED` | More user sort columns than `maxSortColumns`. |
+| `MAX_FILTER_EXCEEDED` | More filter leaves than `maxFilters`. |
+| `VALUE_TOO_LONG` | A decoded value longer than `maxValueLength`, or an `in`/`notIn` list longer than `maxInItems`. |
+| `CONFLICTING_PAGINATION` | `offset` and `cursor` present together. |
+
+The set is closed and shared with the wire format — the Java port maps it 1:1.
+
+## What throws TypeError
+
+Only structural misuse: invalid identifiers or duplicate wire names in `createQuery`, an
+unknown/unsortable `stableBy`, negative `limit`/`offset`, an empty `cursor` string, or calling
+`apply()` on a builder whose spec carries a `cursor` (keyset execution ships in v0.2). None of
+these depend on user input.

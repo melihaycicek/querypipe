@@ -1,0 +1,69 @@
+---
+title: Installation & quick start
+description: Install querypipe and build your first typed query contract in one snippet.
+---
+
+## Install
+
+```sh
+npm install querypipe
+# or
+pnpm add querypipe
+yarn add querypipe
+bun add querypipe
+```
+
+Requires Node ≥ 18.17 (or any modern browser/runtime). Ships ESM + CJS with correct `types` for
+both, zero runtime dependencies, ≈ 7.4 kB min+gzip.
+
+## Quick start
+
+```ts
+import { createQuery, numberField, stringField, dateField, enumField, isOk } from "querypipe";
+
+const products = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+    price: numberField(),
+    category: enumField(["phone", "laptop", "tablet"]),
+    deletedAt: dateField(),
+  },
+  stableBy: "id",                    // deterministic tie-breaker, injected at execution time
+  guards: { maxSortColumns: 3 },     // backend-safe by default
+});
+
+// Client — immutable fluent builder, progressive sorting
+const q = products
+  .filter("price", "between", [1000, 5000])
+  .filter("deletedAt", "isNull")
+  .sort("price", "desc")
+  .thenSort("name");                 // refines, never destroys, the existing order
+
+q.stringify();
+// "sort=price:desc,name:asc&filter=price:between:1000,5000;deletedAt:isNull"
+
+declare const rows: Array<{ id: number; name: string; price: number }>;
+q.apply(rows);                       // non-mutating, stable, SQL ORDER BY-equivalent
+
+// Server — untrusted input, never throws
+const parsed = products.parse("sort=price:desc&filter=deletedAt:isNull");
+if (!isOk(parsed)) {
+  console.log(parsed.errors);        // structured, machine-readable, all at once
+}
+```
+
+Every builder method returns a **new** frozen query — sharing a query between components is
+always safe.
+
+## What you get
+
+| Export group | Names |
+| --- | --- |
+| Schema | `createQuery` · `numberField` `stringField` `dateField` `booleanField` `enumField` `customField` |
+| Functions | `parseQuery` `stringifyQuery` `validateQuerySpec` `canonicalize` `applyQuery` |
+| Result | `isOk` `isErr` |
+| Types | `QuerySpec` `SortCondition` `FilterNode` `FilterCondition` `FilterGroup` `Operator` `QueryError` `QueryErrorCode` `FieldSchema` `QueryResult` |
+
+That is the complete public surface — it is frozen and CI-typechecked against
+[`docs/api/public-api.d.ts`](https://github.com/melihaycicek/querypipe/blob/main/docs/api/public-api.d.ts).

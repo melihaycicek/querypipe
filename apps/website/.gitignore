@@ -1,0 +1,10 @@
+.next/
+.source/
+out/
+node_modules/
+next-env.d.ts
+.env
+.env.local
+scripts/.snippets-tmp/
+.vercel
+*.tsbuildinfo

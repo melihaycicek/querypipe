@@ -1,0 +1,158 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/*
+ * Design tokens. The --qp-* and --tok-* custom properties are injected by the
+ * root layout from lib/palette.ts (single source of truth, shared with the
+ * Shiki theme and the OG image). Everything below only references them.
+ */
+
+@theme inline {
+  --color-canvas: var(--qp-bg);
+  --color-panel: var(--qp-bg-elev);
+  --color-line: var(--qp-border);
+  --color-ink: var(--qp-fg);
+  --color-ink-muted: var(--qp-fg-muted);
+  --color-tok-key: var(--tok-key);
+  --color-tok-field: var(--tok-field);
+  --color-tok-op: var(--tok-op);
+  --color-tok-value: var(--tok-value);
+  --color-tok-sep: var(--tok-sep);
+  --color-tok-err: var(--tok-err);
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", monospace;
+}
+
+/* Map Fumadocs theme variables onto the graphite palette (both themes). */
+:root {
+  --color-fd-background: var(--qp-bg);
+  --color-fd-foreground: var(--qp-fg);
+  --color-fd-muted: #edf0f4;
+  --color-fd-muted-foreground: var(--qp-fg-muted);
+  --color-fd-popover: var(--qp-bg-elev);
+  --color-fd-popover-foreground: var(--qp-fg);
+  --color-fd-card: var(--qp-bg-elev);
+  --color-fd-card-foreground: var(--qp-fg);
+  --color-fd-border: var(--qp-border);
+  --color-fd-primary: var(--tok-key);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #edf0f4;
+  --color-fd-secondary-foreground: var(--qp-fg);
+  --color-fd-accent: #e6ebf2;
+  --color-fd-accent-foreground: var(--qp-fg);
+  --color-fd-ring: var(--tok-key);
+}
+
+.dark {
+  --color-fd-background: var(--qp-bg);
+  --color-fd-foreground: var(--qp-fg);
+  --color-fd-muted: #1b2330;
+  --color-fd-muted-foreground: var(--qp-fg-muted);
+  --color-fd-popover: var(--qp-bg-elev);
+  --color-fd-popover-foreground: var(--qp-fg);
+  --color-fd-card: var(--qp-bg-elev);
+  --color-fd-card-foreground: var(--qp-fg);
+  --color-fd-border: var(--qp-border);
+  --color-fd-primary: var(--tok-key);
+  --color-fd-primary-foreground: var(--qp-bg);
+  --color-fd-secondary: #1b2330;
+  --color-fd-secondary-foreground: var(--qp-fg);
+  --color-fd-accent: #212b3a;
+  --color-fd-accent-foreground: var(--qp-fg);
+  --color-fd-ring: var(--tok-key);
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: #1b2330;
+  --color-fd-secondary: #1f2836;
+  --color-fd-muted-foreground: var(--qp-fg-muted);
+}
+
+body {
+  background: var(--qp-bg);
+  color: var(--qp-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--tok-key) 30%, transparent);
+}
+
+/* ---- grammar token classes (identical everywhere) ------------------ */
+
+.tok-key { color: var(--tok-key); }
+.tok-field { color: var(--tok-field); }
+.tok-op { color: var(--tok-op); }
+.tok-value { color: var(--tok-value); }
+.tok-sep { color: var(--tok-sep); }
+.tok-err {
+  color: var(--tok-err);
+  text-decoration: underline dotted 1px;
+  text-underline-offset: 3px;
+}
+
+/* Parse-error underline driven by QueryError.position ranges. */
+.tok-underline-err {
+  text-decoration: underline wavy var(--tok-err) 1px;
+  text-underline-offset: 4px;
+}
+
+/* ---- code blocks (landing page, non-fumadocs) ----------------------- */
+
+.qp-code pre {
+  overflow-x: auto;
+  padding: 0.875rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  background: transparent;
+}
+.qp-code .shiki,
+.qp-code .shiki span {
+  color: var(--shiki-light);
+  background: transparent !important;
+  font-style: var(--shiki-light-font-style);
+}
+.dark .qp-code .shiki,
+.dark .qp-code .shiki span {
+  color: var(--shiki-dark);
+  font-style: var(--shiki-dark-font-style);
+}
+
+/* ---- shared primitives ---------------------------------------------- */
+
+.panel {
+  background: var(--qp-bg-elev);
+  border: 1px solid var(--qp-border);
+  border-radius: 0.625rem;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--qp-fg-muted);
+}
+
+:focus-visible {
+  outline: 2px solid var(--tok-key);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- motion ---------------------------------------------------------- */
+
+@keyframes qp-pulse-travel {
+  from { offset-distance: 0%; opacity: 1; }
+  to { offset-distance: 100%; opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wire-anim { display: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

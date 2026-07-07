@@ -1,0 +1,59 @@
+---
+title: Progressive sorting
+description: sort vs thenSort vs insertSortAfter — the shift-click semantic, modeled properly.
+---
+
+Progressive (additive) multi-sort is the "shift-click a second column header to refine the
+order" behavior. querypipe models it as first-class builder semantics instead of leaving it to
+every table integration to reinvent.
+
+```ts
+import { createQuery, enumField, numberField, stringField } from "querypipe";
+
+const products = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+    price: numberField(),
+    category: enumField(["phone", "laptop", "tablet"]),
+  },
+  stableBy: "id",
+});
+
+let q = products.sort("category");         // priority 1
+q = q.thenSort("price", "desc");           // append → priority 2, category untouched
+q = q.insertSortAfter("category", "name"); // name slots in at priority 2, price → 3
+q = q.toggleSortDirection("price");        // flip in place, keep its priority
+q = q.removeSort("name");                  // drop it, renormalize to 1..n
+```
+
+## The rules
+
+| Method | Effect on the chain |
+| --- | --- |
+| `sort(field, dir?)` | **Resets** the chain; `field` becomes priority 1. |
+| `thenSort(field, dir?)` | Appends with the next priority; if `field` is already present, updates it **in place**. |
+| `insertSortAfter(after, field, dir?)` | Moves/inserts `field` right after `after`; appends if `after` is absent. |
+| `removeSort(field)` | Removes and renormalizes priorities to `1..n`. Absent field is a no-op. |
+| `toggleSortDirection(field)` | Flips asc/desc in place — priority and `nulls` kept. Absent field is a no-op. |
+
+Priorities renormalize to a contiguous `1..n` after every step, so a spec can never carry gaps
+or duplicates.
+
+## The guarantee
+
+`thenSort` is guaranteed never to change the `(field, direction, priority)` of any pre-existing
+sort — a property the conformance suite enforces (vector file `11-sort-progressive.json`, plus
+a fast-check invariant law).
+
+## Wiring it to a table
+
+The mapping used across this site and in the
+[TanStack Table recipe](/docs/recipes/tanstack-nuqs):
+
+- click on an unsorted header → `sort(field)` (reset)
+- shift+click on an unsorted header → `thenSort(field)` (refine)
+- click on a sorted header → `toggleSortDirection(field)`
+
+Try it live in the [playground](/playground) — the priority badges on the headers are the
+`priority` values straight out of the spec.

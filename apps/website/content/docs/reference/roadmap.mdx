@@ -1,0 +1,102 @@
+---
+title: Roadmap
+description: The quarterly plan — what's reserved, what's next, and the exit criteria for each release.
+---
+
+Mirrored from
+[`docs/ROADMAP.md`](https://github.com/melihaycicek/querypipe/blob/main/docs/ROADMAP.md).
+Each item names the ADR that already fixed its contract, so shipping it is *implementation*,
+not *design*.
+
+**Guiding principle.** On any trade-off the priority order is: **(1) Java portability → (2)
+type safety → (3) bundle size → (4) API ergonomics.**
+
+**Versioning contract.** The `QuerySpec` shape and JSON wire format are frozen. New
+capabilities unlock *behavior*, not *shape*. A change that would alter the wire format is a
+major-version event.
+
+Legend: ✅ done · ⏳ planned · 🧊 reserved (interface exists, no work scheduled yet). Dates are
+targets, not commitments; scope is trimmed before dates slip.
+
+## Now — v0.1.x · Q3 2026 · Stabilize the contract
+
+| Status | Item | Notes |
+| --- | --- | --- |
+| ✅ | `querypipe` core engine | Field DSL, immutable builder, parse/stringify/canonicalize/validate/apply |
+| ✅ | Conformance suite | 20 language-independent JSON vector files + fast-check invariant laws |
+| ✅ | Frozen public API + `.d.ts` contract | CI-typechecked against the export list |
+| ⏳ | Docs site | ADRs + specs + interactive playground (this site) |
+| ⏳ | `v0.1.x` patches | Bug fixes only; **no** wire-format or API-surface changes |
+| ⏳ | Bundle shrink toward 6 kB | Opt-out position tracking, build-time message→code stripping |
+
+**Exit criteria:** published to npm; docs site live; ≥ 1 real integration exercising
+parse → validate → generate end to end.
+
+## Next — v0.2.0 · Q4 2026 · Generate & interop, wave 1
+
+Adapters ship as **separate scoped packages** so `querypipe` stays zero-dependency.
+
+| Status | Item | Contract | Package |
+| --- | --- | --- | --- |
+| 🧊→⏳ | Prisma adapter | ADR-0004 `QueryAdapter<TOutput>` | `@querypipe/prisma` |
+| 🧊→⏳ | SQL adapter (parametrized, injection-safe) | ADR-0004 §3 | `@querypipe/sql` |
+| 🧊→⏳ | Keyset / cursor pagination | ADR-0004 §2 | core + adapters |
+| 🧊→⏳ | Spec versioning + `migrate(spec, migrations)` | ADR-0001 §6 | core |
+
+**Non-negotiable adapter obligations:** tie-breaker injection parity with client `apply`
+(ADR-0005); every value parametrized; `NULLS FIRST/LAST` emitted wherever the target differs
+from the ADR-0008 reference model; Result-typed totality (no partial queries).
+
+**Exit criteria:** `@querypipe/prisma` and `@querypipe/sql` produce total orders **identical**
+to client `apply` for the same spec, verified by shared adapter vectors; keyset pagination
+round-trips a multi-column sort + tie-breaker.
+
+## v0.2.x · Q1 2027 · Generate & interop, wave 2
+
+| Status | Item | Package |
+| --- | --- | --- |
+| 🧊→⏳ | Two-way TanStack Table adapter | `@querypipe/tanstack` |
+| 🧊→⏳ | Mongo adapter (`$regex` metachar escaping) | `@querypipe/mongo` |
+| 🧊→⏳ | Syntax dialect plugins (ADR-0010) | `@querypipe/dialect-*` |
+| 🧊→⏳ | Page-based pagination dialect (`page=2&limit=30` → `offset` at the parse boundary) | `@querypipe/dialect-page` |
+
+Flagship dialects: `page=`, JSON:API (`sort=-price,name`), OData (`$orderby`),
+api-query-params style. Dialects are boundary translators: foreign syntax in, canonical
+`QuerySpec` out; guards apply unchanged.
+
+## v0.3.0 · Q2 2027 · OR groups & richer schemas
+
+| Status | Item |
+| --- | --- |
+| 🧊→⏳ | **OR group builder** — `orGroup(...)` / nested `and`/`or`. Type & wire format already ship in v0.1; this only relaxes the acceptance rule and opens the builder API. |
+| 🧊→⏳ | Context-aware schema — `withContext({ role })`, per-field `visibleWhen(ctx)` |
+| 🧊→⏳ | Computed fields — client resolver + adapter mapping |
+| 🧊→⏳ | Nested paths — `"author.name"` (`.` reserved out of identifiers since v0.1) |
+
+The OR-group unlock is the proof of the v0.1 design bet: because the discriminated
+`FilterNode` AST shipped from day one, adding OR groups changes **zero** wire bytes and re-runs
+the **same** existing vectors.
+
+## Cross-language — querypipe-java 0.1 · Q3 2027
+
+| Status | Item |
+| --- | --- |
+| 🧊→⏳ | Java port of the engine — passes the identical `packages/testing/vectors/*.json` |
+| 🧊→⏳ | JPA / Criteria + JDBC adapters |
+| 🧊→⏳ | Shared vector CI — one fixture set, two implementations, same green |
+
+The Java port starts from the vectors, **not** from reading TypeScript source.
+
+## Later / backlog (unscheduled)
+
+- `diff(other)` / `merge(other)` and query history / undo — cheap on the immutable builder
+- Async value validation — `parseQueryAsync`
+- Additional operators beyond the MVP set — only if they deserialize cleanly in both languages
+- Framework-specific wrappers (React hooks, Vue composables) — separate packages, never in core
+
+## How to influence this roadmap
+
+Items are pulled into a release based on demand. If you need one sooner,
+[open an issue](https://github.com/melihaycicek/querypipe/issues) describing the use case.
+Because the contracts are already fixed in the ADRs, most items are well-scoped units of work —
+good candidates for contribution.

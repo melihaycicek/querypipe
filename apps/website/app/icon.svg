@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#0F141B"/>
+  <text x="8" y="43" font-family="ui-monospace,Menlo,monospace" font-size="30" font-weight="600">
+    <tspan fill="#5FC6E8">q</tspan><tspan fill="#8593A6">:</tspan><tspan fill="#B4A8F5">p</tspan>
+  </text>
+  <rect x="8" y="50" width="14" height="4" rx="2" fill="#E0B65C"/>
+  <rect x="26" y="50" width="14" height="4" rx="2" fill="#8FCB7F"/>
+  <rect x="44" y="50" width="12" height="4" rx="2" fill="#8593A6"/>
+</svg>

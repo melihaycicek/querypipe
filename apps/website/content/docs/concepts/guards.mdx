@@ -1,0 +1,62 @@
+---
+title: Guards & safety
+description: Mandatory whitelist, guard limits, and the no-RegExp rule — backend-safe by default.
+---
+
+Everything crossing the parse/validate boundary is checked against the schema **and** a set of
+guard limits before your database ever sees it. There is no schema-less parse and no opt-out.
+
+## The whitelist
+
+Only declared fields exist. Anything else is `UNKNOWN_FIELD`:
+
+```ts
+import { createQuery, numberField } from "querypipe";
+
+const q = createQuery({
+  fields: {
+    id: numberField(),
+    price: numberField(),
+    costPrice: numberField({ filterable: false, sortable: false }), // unreachable from the wire
+  },
+  stableBy: "id",
+});
+
+q.parse("sort=margin:desc");    // → UNKNOWN_FIELD
+q.parse("sort=costPrice:desc"); // → NOT_SORTABLE (declared, but opted out)
+```
+
+`{ sortable: false }` and `{ filterable: false }` narrow the **types** too — `q.sort("costPrice")`
+is a compile error, and the same rule is enforced at runtime for wire input.
+
+## Guard limits
+
+| Guard | Default | Breach error |
+| --- | --- | --- |
+| `maxSortColumns` | 3 | `MAX_SORT_EXCEEDED` |
+| `maxFilters` (counted as leaves) | 10 | `MAX_FILTER_EXCEEDED` |
+| `maxValueLength` (UTF-16 length of a decoded value) | 256 | `VALUE_TOO_LONG` |
+| `maxInItems` (items of an `in`/`notIn` list) | 100 | `VALUE_TOO_LONG` |
+
+Override per schema:
+
+```ts
+const limited = createQuery({
+  fields: { id: numberField(), price: numberField() },
+  stableBy: "id",
+  guards: { maxSortColumns: 2, maxFilters: 5, maxValueLength: 64, maxInItems: 20 },
+});
+```
+
+The injected `stableBy` tie-breaker does **not** count against `maxSortColumns` — it is added at
+execution time, never into the spec.
+
+## The no-RegExp rule
+
+`contains` / `startsWith` / `endsWith` are always **literal** substring/prefix/suffix matches.
+User input is never compiled into a `RegExp` or any pattern language, so there is nothing to
+escape and no pattern-injection surface. (The v0.2 SQL and Mongo adapters carry the same
+obligation: `LIKE` metacharacters and `$regex` metacharacters are escaped by contract.)
+
+Try the guard behavior live in the [guards demo](/#try) — a slider pushes the sort-column count
+past the limit and the parse flips to `MAX_SORT_EXCEEDED`.

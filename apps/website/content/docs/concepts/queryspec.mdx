@@ -1,0 +1,65 @@
+---
+title: The QuerySpec
+description: The frozen, language-independent query contract — filters, sorts, pagination, version.
+---
+
+`QuerySpec` is the whole product: one plain, JSON-serializable object that every layer — URL,
+table UI, server — agrees on. The shape is **frozen**; v0.2 adapters, v0.3 OR groups and the
+Java port all fit this exact type.
+
+```ts
+import type { QuerySpec } from "querypipe";
+
+const spec: QuerySpec = {
+  filters: [
+    { kind: "condition", field: "price", op: "between", value: [1000, 5000] },
+    { kind: "condition", field: "category", op: "in", value: ["phone", "laptop"] },
+    { kind: "condition", field: "deletedAt", op: "isNull" },
+  ],
+  sorts: [
+    { field: "price", direction: "desc", priority: 1 },
+    { field: "stock", direction: "asc", nulls: "last", priority: 2 },
+  ],
+  offset: 30,
+  limit: 30,
+};
+```
+
+## The parts
+
+| Member | Meaning |
+| --- | --- |
+| `filters` | Root-level conditions, combined with **AND** in v0.1. Always present (possibly `[]`). |
+| `sorts` | The progressive sort chain. `priority` is 1-based; canonical specs hold a contiguous `1..n`. |
+| `limit` / `offset` | Canonical pagination (there is no `page`). Integers ≥ 0, omitted when unset. |
+| `cursor` | Opaque keyset cursor, reserved for v0.2 execution. Mutually exclusive with `offset` (`CONFLICTING_PAGINATION`). |
+| `version` | Reserved for spec migrations. v0.1 accepts only `1` (or absent) and passes it through. |
+
+## The `kind` discriminator
+
+Every filter node carries `kind: "condition" | "group"`. The `FilterGroup` node (nested
+`and`/`or` trees) is **present in the type system and the wire format from v0.1** so that v0.3
+OR groups are a pure API unlock — but no v0.1 API produces it, and v0.1 validation rejects
+group nodes with a structured error instead of misinterpreting them.
+
+```ts
+import type { FilterCondition, FilterGroup, FilterNode } from "querypipe";
+
+declare const node: FilterNode;
+if (node.kind === "condition") {
+  // FilterCondition: { kind, field, op, value? }
+} else {
+  // FilterGroup: { kind, logic: "and" | "or", children } — rejected by v0.1 engines
+}
+```
+
+## Value rules
+
+- `value` is **absent** for `isNull`/`notNull`, a `[T, T]` pair for `between`, a non-empty array
+  for `in`/`notIn`, a single value otherwise.
+- Values are typed JSON, never coerced: numbers as finite JSON numbers, booleans as JSON
+  booleans, dates as ISO-8601 strings, enum values as strings. `"5"` on a number field is
+  `INVALID_VALUE`.
+- Optional members are **omitted** when unset — never `null`.
+
+The full normative JSON projection lives in [Wire format (JSON)](/docs/reference/wire-format).

@@ -1,0 +1,68 @@
+---
+title: Canonical strings
+description: The query-string grammar — lenient in, canonical out, idempotent by law.
+---
+
+Every `QuerySpec` has exactly one canonical string form. Equal queries are equal strings, so
+canonical strings are safe cache keys, ETags and shareable URLs.
+
+<div className="panel" style={{ padding: "0.75rem 1rem", overflowX: "auto" }}>
+  <QueryTokenString value="sort=price:desc,stock:asc&filter=price:between:1000,5000;category:in:phone,laptop;deletedAt:isNull&offset=30&limit=30" />
+</div>
+
+## Shape
+
+Segments joined by `&`, in fixed canonical order:
+`sort=` → `filter=` → `offset=` → `limit=` → `cursor=` → `version=`.
+
+- `sort=` items: `field:direction[:nullsfirst|nullslast]`, comma-separated. Wire position is
+  priority.
+- `filter=` items: `field:op[:values]`, semicolon-separated; multiple values comma-separated.
+- Empty segments are omitted; the empty spec stringifies to `""`.
+
+## Escaping
+
+Values (and `cursor`) use a six-character percent-encode set, uppercase hex:
+
+| Char | Encoded |
+| --- | --- |
+| `%` | `%25` |
+| `,` | `%2C` |
+| `;` | `%3B` |
+| `:` | `%3A` |
+| `&` | `%26` |
+| `=` | `%3D` |
+
+`+` is a literal plus and space is a literal space (RFC 3986-style, **not** form-urlencoding).
+Field, operator, direction and nulls tokens are matched raw — never decoded — and
+case-sensitively.
+
+## Lenient in, canonical out
+
+Accepted leniencies on parse: segments in any order, omitted sort direction (defaults `asc`),
+lowercase hex and over-encoding in escapes. Output is always canonical:
+
+```ts
+import { createQuery, dateField, isOk, numberField } from "querypipe";
+
+const products = createQuery({
+  fields: { id: numberField(), price: numberField(), deletedAt: dateField() },
+  stableBy: "id",
+});
+
+const messy = "offset=30&filter=deletedAt:isNull&sort=price";
+const parsed = products.parse(messy);
+if (isOk(parsed)) {
+  // canonical, byte-stable:
+  // "sort=price:asc&filter=deletedAt:isNull&offset=30"
+}
+```
+
+## The two laws
+
+1. `parse(stringify(spec))` deep-equals every canonical spec (lossless round-trip).
+2. `stringify(parse(input))` is **idempotent** for every accepted input.
+
+The [canonicalize demo](/#try) verifies law 2 at runtime, every time you press the button. The
+full grammar, value-typing table and strictness rules are in
+[Query-string grammar](/docs/reference/query-string).

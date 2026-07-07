@@ -1,0 +1,108 @@
+---
+title: TanStack Table + nuqs
+description: Manual wiring — querypipe owns the contract, nuqs owns URL state, TanStack renders.
+---
+
+This recipe mirrors
+[`examples/react-table`](https://github.com/melihaycicek/querypipe/tree/main/examples/react-table)
+in the repository. There is deliberately **no** `toTanStackState` adapter here — that ships in
+v0.2 — so you can see the exact seams the adapter will replace.
+
+The division of labor:
+
+- **querypipe** owns the query *contract* (the spec and its canonical string)
+- **nuqs** owns URL state (the `?q=` param stores the canonical string)
+- **TanStack Table** renders (with `manualSorting` / `manualFiltering` — it never sorts)
+
+## 1. The contract
+
+```ts
+import { createQuery, enumField, isOk, numberField, stringField } from "querypipe";
+
+const products = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+    price: numberField(),
+    stock: numberField(),
+    category: enumField(["phone", "laptop", "tablet"]),
+  },
+  stableBy: "id",
+  guards: { maxSortColumns: 3 },
+});
+```
+
+## 2. URL state: the URL stores the canonical string
+
+nuqs custom parsers are two functions — exactly querypipe's two boundaries:
+
+```ts no-check
+import { createParser, useQueryState } from "nuqs";
+
+const querySpecParser = createParser({
+  parse(value: string) {
+    const result = products.parse(value);
+    return isOk(result) ? result.value : null; // invalid URLs fall back to default
+  },
+  serialize(spec) {
+    const result = products.withSpec(spec);
+    return isOk(result) ? result.value.stringify() : "";
+  },
+});
+
+const DEFAULT_SPEC = products.sort("price", "desc").toSpec();
+
+// in the component:
+const [spec, setSpec] = useQueryState("q", querySpecParser.withDefault(DEFAULT_SPEC));
+```
+
+Because `stringify` is canonical and byte-stable, the same query always produces the same URL —
+shareable, cacheable, diff-able.
+
+## 3. Progressive sorting from header clicks
+
+Click = `sort` (reset chain) · shift+click = `thenSort` (refine) · click on an already-sorted
+column = `toggleSortDirection`:
+
+```ts
+import type { QuerySpec } from "querypipe";
+
+type SortableProductField = "id" | "name" | "price" | "stock" | "category";
+
+declare const spec: QuerySpec;
+declare function setSpec(next: QuerySpec): void;
+
+function onHeaderClick(field: SortableProductField, event: { shiftKey: boolean }) {
+  const restored = products.withSpec(spec);
+  const query = isOk(restored) ? restored.value : products;
+  const existing = spec.sorts.some((s) => s.field === field);
+
+  const next = existing
+    ? query.toggleSortDirection(field) // same column: flip direction, keep chain position
+    : event.shiftKey
+      ? query.thenSort(field)          // refine: append with next priority
+      : query.sort(field);             // reset: this column becomes priority 1
+
+  setSpec(next.toSpec());
+}
+```
+
+## 4. Execution and rendering
+
+```ts no-check
+const rows = React.useMemo(() => query.apply(DATA), [query]); // non-mutating, tie-broken by id
+
+const table = useReactTable({
+  data: rows,
+  columns,
+  getCoreRowModel: getCoreRowModel(),
+  manualSorting: true,   // querypipe owns sorting
+  manualFiltering: true, // and filtering — TanStack only renders
+});
+```
+
+Header cells read the badge straight from the spec — `▲2` is
+`{ direction: "asc", priority: 2 }`, no separate UI state to reconcile.
+
+The complete runnable app (Vite + React 18) is in the repository:
+[`examples/react-table`](https://github.com/melihaycicek/querypipe/tree/main/examples/react-table).

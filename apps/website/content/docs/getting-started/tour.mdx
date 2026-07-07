@@ -1,0 +1,57 @@
+---
+title: 60-second tour
+description: Client build → server parse → apply, in three steps.
+---
+
+## 1. Describe the contract once
+
+The schema is the single source of truth for what the wire may contain. Fields not declared
+here don't exist as far as any query string or spec is concerned.
+
+```ts
+import { createQuery, numberField, stringField, dateField, enumField, isOk } from "querypipe";
+
+export const products = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+    price: numberField(),
+    category: enumField(["phone", "laptop", "tablet"]),
+    deletedAt: dateField(),
+    costPrice: numberField({ filterable: false, sortable: false }), // unreachable from the wire
+  },
+  stableBy: "id",
+  guards: { maxSortColumns: 3 },
+});
+```
+
+## 2. Build queries fluently and immutably (client)
+
+```ts
+let q = products.sort("category");         // priority 1
+q = q.thenSort("price", "desc");           // append → priority 2, category untouched
+q = q.insertSortAfter("category", "name"); // name slots in at priority 2, price → 3
+q = q.toggleSortDirection("price");        // flip in place, keep its priority
+q = q.removeSort("name");                  // drop it, renormalize to 1..n
+
+const url = `/products?${q.stringify()}`;  // canonical, byte-stable — safe as a cache key
+```
+
+`q.apply(rows)` executes the same spec client-side: non-mutating, stable, with the `stableBy`
+tie-breaker injected — equivalent to the SQL `ORDER BY` an adapter will emit in v0.2.
+
+## 3. Accept untrusted input safely (server)
+
+```ts
+declare const queryString: string; // e.g. req.originalUrl.split("?")[1] ?? ""
+
+const parsed = products.parse(queryString);
+if (!isOk(parsed)) {
+  // 400 with parsed.errors: structured, machine-readable, all errors at once
+} else {
+  // parsed.value is whitelisted, guard-limited and injection-safe by construction
+}
+```
+
+`parse` never throws. Guard breaches, unknown fields, bad operators and malformed values all
+come back as one structured error list — see the [error model](/docs/concepts/errors).

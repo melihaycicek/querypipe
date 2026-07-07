@@ -1,0 +1,132 @@
+---
+title: Express + Prisma
+description: parse → 400 | findMany args — the backend boundary in one call.
+---
+
+This recipe mirrors
+[`examples/express-prisma`](https://github.com/melihaycicek/querypipe/tree/main/examples/express-prisma)
+in the repository. The spec → Prisma mapping is written by hand **on purpose**: it is the exact
+seam the official `@querypipe/prisma` adapter replaces in v0.2.
+
+## 1. The contract (shared, conceptually, with the client)
+
+```ts
+import {
+  createQuery,
+  dateField,
+  enumField,
+  isErr,
+  numberField,
+  stringField,
+  type FilterCondition,
+  type QuerySpec,
+} from "querypipe";
+
+const products = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+    price: numberField(),
+    stock: numberField(),
+    category: enumField(["phone", "laptop", "tablet"]),
+    createdAt: dateField({ alias: "created" }),
+    deletedAt: dateField(),
+    costPrice: numberField({ filterable: false, sortable: false }), // never reachable from the wire
+  },
+  stableBy: "id",
+  guards: { maxSortColumns: 3, maxFilters: 10, maxInItems: 50 },
+});
+```
+
+## 2. Spec → Prisma findMany args (the v0.2 adapter seam)
+
+```ts
+type PrismaFindManyArgs = {
+  where: Record<string, unknown>;
+  orderBy: Array<
+    Record<string, "asc" | "desc" | { sort: "asc" | "desc"; nulls: "first" | "last" }>
+  >;
+  skip?: number;
+  take?: number;
+};
+
+const OP_TO_PRISMA: Record<string, (value: unknown) => unknown> = {
+  eq: (v) => v,
+  neq: (v) => ({ not: v }),
+  gt: (v) => ({ gt: v }),
+  gte: (v) => ({ gte: v }),
+  lt: (v) => ({ lt: v }),
+  lte: (v) => ({ lte: v }),
+  in: (v) => ({ in: v }),
+  notIn: (v) => ({ notIn: v }),
+  between: (v) => {
+    const [min, max] = v as [unknown, unknown];
+    return { gte: min, lte: max };
+  },
+  contains: (v) => ({ contains: v }),
+  startsWith: (v) => ({ startsWith: v }),
+  endsWith: (v) => ({ endsWith: v }),
+  isNull: () => null,
+  notNull: () => ({ not: null }),
+};
+
+function toPrismaArgs(spec: QuerySpec): PrismaFindManyArgs {
+  // v0.1 specs contain conditions only (root AND) — validated upstream.
+  const conditions = spec.filters.filter((n): n is FilterCondition => n.kind === "condition");
+  const where: Record<string, unknown> = {
+    AND: conditions.map((c) => ({ [c.field]: OP_TO_PRISMA[c.op]!(c.value) })),
+  };
+
+  const orderBy: PrismaFindManyArgs["orderBy"] = [...spec.sorts]
+    .sort((a, b) => a.priority - b.priority)
+    .map((s) => ({
+      [s.field]: s.nulls ? { sort: s.direction, nulls: s.nulls } : s.direction,
+    }));
+  // Tie-breaker parity with client apply (ADR-0005) — the v0.2 adapter does this for you.
+  if (orderBy.length > 0 && !spec.sorts.some((s) => s.field === "id")) {
+    orderBy.push({ id: "asc" });
+  }
+
+  return {
+    where,
+    orderBy,
+    ...(spec.offset !== undefined ? { skip: spec.offset } : {}),
+    ...(spec.limit !== undefined ? { take: spec.limit } : {}),
+  };
+}
+```
+
+## 3. The HTTP boundary — one call, no try/catch
+
+```ts no-check
+import express from "express";
+
+const app = express();
+
+app.get("/products", async (req, res) => {
+  const queryString = req.originalUrl.split("?")[1] ?? "";
+  const parsed = products.parse(queryString);
+
+  if (isErr(parsed)) {
+    // Structured, machine-readable 400.
+    res.status(400).json({ ok: false, errors: parsed.errors });
+    return;
+  }
+
+  const rows = await db.product.findMany(toPrismaArgs(parsed.value));
+  res.json({ ok: true, query: parsed.value, rows });
+});
+```
+
+A request like
+
+```
+GET /products?sort=price:desc,stock:asc&filter=price:between:1000,5000;deletedAt:isNull&offset=30&limit=30
+```
+
+becomes `where: { AND: [...] }`, `orderBy: [{ price: "desc" }, { stock: "asc" }, { id: "asc" }]`,
+`skip: 30`, `take: 30` — every value parametrized by Prisma, the tie-breaker appended, and
+anything invalid already turned into a ready-made 400 body.
+
+The complete runnable server is in the repository:
+[`examples/express-prisma`](https://github.com/melihaycicek/querypipe/tree/main/examples/express-prisma).

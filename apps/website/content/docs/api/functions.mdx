@@ -1,0 +1,94 @@
+---
+title: Top-level functions
+description: parseQuery, stringifyQuery, validateQuerySpec, canonicalize, applyQuery, isOk, isErr.
+---
+
+The top-level functions are the Result-returning boundaries for **external** data. Each takes
+the schema-bound query as its first argument (the builder methods `q.parse(...)` etc. are sugar
+over these).
+
+The imports and schema used by every example below:
+
+```ts
+import {
+  applyQuery,
+  canonicalize,
+  createQuery,
+  dateField,
+  isErr,
+  isOk,
+  numberField,
+  parseQuery,
+  stringifyQuery,
+  validateQuerySpec,
+  type QueryResult,
+  type QuerySpec,
+} from "querypipe";
+
+const products = createQuery({
+  fields: { id: numberField(), price: numberField(), deletedAt: dateField() },
+  stableBy: "id",
+});
+```
+
+## parseQuery
+
+```ts
+const result = parseQuery(products, "sort=price:desc&filter=deletedAt:isNull");
+if (isOk(result)) {
+  result.value;  // QuerySpec
+} else {
+  result.errors; // readonly QueryError[] — never throws
+}
+```
+
+## stringifyQuery
+
+```ts
+// Own spec (always ok for builder-made queries):
+stringifyQuery(products.sort("price", "desc"));
+
+// External spec — validated first; unserializable specs (unknown fields, v0.1
+// group nodes, guard breaches) yield errors, never partial output:
+declare const externalSpec: QuerySpec;
+const stringified = stringifyQuery(products, externalSpec);
+```
+
+## validateQuerySpec
+
+```ts
+declare const incoming: QuerySpec; // e.g. a JSON body from another service
+const checked = validateQuerySpec(products, incoming);
+// ok → the spec unchanged; err → schema/guard violations as structured errors
+```
+
+## canonicalize
+
+```ts
+const canonical = canonicalize(products, "limit=30&sort=price"); // lenient in
+if (isOk(canonical)) {
+  canonical.value; // "sort=price:asc&limit=30" — canonical out, idempotent
+}
+```
+
+`canonicalize` is `stringify ∘ parse`: running it on its own output is the identity for every
+accepted input.
+
+## applyQuery
+
+```ts
+declare const spec: QuerySpec;
+declare const rows: Array<{ id: number; price: number }>;
+
+const applied = applyQuery(products, spec, rows);
+// validate → filter (AND) → stable sort (+ stableBy tie-breaker) → offset/limit slice.
+// Non-mutating (toSorted semantics). Cursor-bearing specs are rejected in v0.1.
+```
+
+## isOk / isErr
+
+```ts
+declare const someResult: QueryResult<string>;
+if (isOk(someResult)) someResult.value;   // narrowed to the ok arm
+if (isErr(someResult)) someResult.errors; // narrowed to the err arm
+```

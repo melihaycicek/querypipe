@@ -1,0 +1,98 @@
+---
+title: Builder methods
+description: The immutable, schema-bound query builder — every method returns a new frozen query.
+---
+
+`createQuery` returns an immutable builder. Every method returns a **new** frozen instance;
+specs built through it are valid by construction, so `stringify()` and `apply()` return plain
+values (external inputs go through the Result-returning functions instead).
+
+The schema used by every example below:
+
+```ts
+import {
+  createQuery,
+  dateField,
+  enumField,
+  isOk,
+  numberField,
+  stringField,
+  type QuerySpec,
+} from "querypipe";
+
+const products = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+    price: numberField(),
+    category: enumField(["phone", "laptop", "tablet"]),
+    deletedAt: dateField(),
+  },
+  stableBy: "id",
+  guards: { maxSortColumns: 3 },
+});
+```
+
+## Filtering
+
+```ts
+products.filter("price", "eq", 999);
+products.filter("price", "between", [1000, 5000]); // exactly [T, T]
+products.filter("category", "in", ["phone", "laptop"]);
+products.filter("name", "startsWith", "Aria");     // literal — never a pattern
+products.filter("deletedAt", "isNull");            // no value parameter (compile-enforced)
+```
+
+Filters accumulate with root-level **AND**. Operator/value pairs are typed per field kind —
+see [Operators](/docs/api/operators). OR groups arrive in v0.3.
+
+## Progressive sorting
+
+```ts
+products.sort("price", "desc");                      // reset chain; price becomes priority 1
+products.sort("price").thenSort("name");             // append; existing priorities untouched
+products
+  .sort("category")
+  .thenSort("price", "desc")
+  .insertSortAfter("category", "name");              // name → priority 2, price → 3
+products.sort("price").removeSort("price");          // remove + renormalize to 1..n
+products.sort("price").toggleSortDirection("price"); // flip in place, priority kept
+products.sort("deletedAt", "asc", { nulls: "first" }); // absolute NULL placement
+```
+
+Full semantics: [Progressive sorting](/docs/concepts/progressive-sorting).
+
+## Pagination
+
+```ts
+products.limit(30);
+products.offset(60);       // setting offset clears cursor
+products.cursor("opaque"); // setting cursor clears offset (last write wins)
+```
+
+`limit`/`offset` take integers ≥ 0 (misuse throws `TypeError`). `cursor` is opaque in v0.1 —
+it round-trips through specs and strings, but keyset *execution* ships with the v0.2 adapters,
+so `apply()` on a cursor-bearing builder throws `TypeError`.
+
+## Boundaries
+
+```ts
+// toSpec(): the frozen canonical spec — safe to share, never mutated.
+const spec: QuerySpec = products.sort("price", "desc").toSpec();
+
+// withSpec(): the validation boundary for external specs entering the builder.
+const restored = products.withSpec(spec);
+if (isOk(restored)) {
+  restored.value.stringify(); // "sort=price:desc"
+}
+
+// parse(): sugar for parseQuery(products, input) — never throws.
+const parsed = products.parse("sort=price:desc&limit=30");
+
+// stringify(): canonical string of this builder's own spec (total).
+const canonical = products.sort("price").stringify();
+
+// apply(): non-mutating, stable, precompiled client-side execution.
+declare const rows: Array<{ id: number; price: number }>;
+const sorted = products.sort("price", "desc").apply(rows);
+```

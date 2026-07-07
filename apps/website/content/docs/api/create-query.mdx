@@ -1,0 +1,96 @@
+---
+title: createQuery & field constructors
+description: Declaring the schema — fields, stableBy, guards, and the six field constructors.
+---
+
+## createQuery
+
+```ts
+import {
+  booleanField,
+  createQuery,
+  customField,
+  dateField,
+  enumField,
+  numberField,
+  stringField,
+} from "querypipe";
+
+const q = createQuery({
+  fields: {
+    id: numberField(),
+    name: stringField(),
+  },
+  stableBy: "id",
+  guards: { maxSortColumns: 3, maxFilters: 10, maxValueLength: 256, maxInItems: 100 },
+});
+```
+
+| Option | Meaning |
+| --- | --- |
+| `fields` | The whitelist. Keys must match `[A-Za-z_][A-Za-z0-9_]*`; `.` is reserved for future nested paths. |
+| `stableBy` | A unique, **sortable** field injected as the final sort column during `apply` / adapter output — never into the spec. |
+| `guards` | Limits applied at parse/validate time. See [Guards & safety](/docs/concepts/guards) for defaults. |
+
+Structural misuse of the definition — bad identifiers, duplicate wire names (aliases), an
+unknown or unsortable `stableBy` — throws `TypeError` at `createQuery` time. Data-path errors
+never throw.
+
+## Field constructors
+
+All six share the base options `{ sortable?, filterable?, alias? }`. Passing
+`{ sortable: false }` narrows the **type** (the field disappears from `sort()`'s allowed
+names) and the runtime check together.
+
+```ts
+const catalog = createQuery({
+  fields: {
+    id: numberField(),
+    title: stringField({ alias: "t" }),               // wire name "t" in canonical strings
+    name: stringField({ locale: "de", sensitivity: "base" }), // opt-in collator ordering
+    price: numberField(),
+    inStock: booleanField(),
+    createdAt: dateField(),
+    tier: enumField(["bronze", "silver", "gold"]),    // value type: "bronze" | "silver" | "gold"
+    version: customField<{ major: number; minor: number }>({
+      comparator: (a, b) => a.major - b.major || a.minor - b.minor,
+    }),
+  },
+  stableBy: "id",
+});
+```
+
+| Constructor | Value type | Notes |
+| --- | --- | --- |
+| `numberField()` | `number` | Strict tokens on the wire: no exponent, no `NaN`/`Infinity`. |
+| `stringField()` | `string` | Default order is UTF-16 code units; `locale`/`sensitivity` opt into `Intl.Collator`. |
+| `dateField()` | `Date \| string \| number` in, ISO string in the spec | `YYYY-MM-DD` or ISO datetime with mandatory `Z`/offset. |
+| `booleanField()` | `boolean` | Wire tokens: lowercase `true` / `false` only. |
+| `enumField(values)` | union of `values` | Comparison order = declaration order. Case-sensitive on the wire. |
+| `customField<T>({ comparator })` | `T` | Sort basis you define; **null-checks-only** for filtering in v0.1 (values aren't wire-portable). |
+
+### Aliases
+
+`alias` renames a field **in the canonical string format only** — JSON wire specs always carry
+internal names. Duplicate wire names throw `TypeError` at schema construction.
+
+### Standard Schema hook
+
+Every constructor (except the comparator requirement on `customField`) accepts an optional
+`schema` implementing the dependency-free
+[Standard Schema](https://standardschema.dev) interface — Zod, Valibot and ArkType plug in with
+no coupling and no added runtime dependency:
+
+```ts no-check
+import { z } from "zod";
+import { createQuery, stringField } from "querypipe";
+
+const users = createQuery({
+  fields: { id: numberField(), email: stringField({ schema: z.string().email() }) },
+  stableBy: "id",
+});
+```
+
+Failing hook results surface as `INVALID_VALUE` on the data path (sync validators only in
+v0.1; async is on the roadmap). Fragment operators (`contains`/`startsWith`/`endsWith`) bypass
+value-domain hooks by design — fragments aren't domain values.

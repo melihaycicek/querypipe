@@ -1,0 +1,29 @@
+---
+title: ADR index
+description: All eleven architecture decision records, with one-line summaries and links to the full texts.
+---
+
+Every architectural decision is recorded as an ADR in the repository — read them to understand
+*why* the spec looks the way it does. When a decision is ambiguous, the priority order is:
+**(1) Java portability → (2) type safety → (3) bundle size → (4) API ergonomics.**
+
+| ADR | Title | In one line |
+| --- | --- | --- |
+| [0001](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0001-queryspec-wire-format.md) | Canonical QuerySpec model & `kind`-discriminated FilterNode AST | One frozen JSON shape; groups reserved in the AST from day one so v0.3 changes zero wire bytes. |
+| [0002](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0002-immutable-builder.md) | Immutable builder & progressive sort semantics | Every method returns a new frozen query; `thenSort` never disturbs existing priorities. |
+| [0003](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0003-error-model.md) | Result-based structured errors; no-throw data path | Data errors return a multi-error Result; only programmer misuse throws TypeError. |
+| [0004](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0004-adapter-interface.md) | Adapter interface contract (reserved for v0.2) | Adapters must match client `apply` exactly: parametrized values, tie-breaker parity, Result-typed totality. |
+| [0005](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0005-tie-breaker.md) | Deterministic tie-breaker (`stableBy`) injection | A unique sortable field is appended at execution time — never into the spec — making every order total. |
+| [0006](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0006-guards.md) | Guard limits & injection safety | Whitelist + limits on sort columns, filters, value length and in-lists; no user input becomes a pattern. |
+| [0007](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0007-string-format.md) | Canonical string format: escaping & canonicalization | Six-character escape set, fixed segment order, lenient-in/canonical-out, idempotence law. |
+| [0008](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0008-reference-comparator.md) | Reference comparator: SQL ORDER BY model & NULL semantics | PostgreSQL NULL rules as the single model shared by client apply and all future adapters. |
+| [0009](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0009-standard-schema.md) | Optional value validation via Standard Schema | Zod/Valibot/ArkType plug in through the dependency-free `~standard` interface; sync-only in v0.1. |
+| [0010](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0010-dialect-plugins.md) | Syntax dialect plugin interface (reserved for v0.2) | Foreign syntaxes (page=, JSON:API, OData) translate at the boundary into the same canonical spec. |
+| [0011](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0011-java-portability.md) | Java portability constraints | Everything must deserialize into sealed Java types from the same JSON and produce byte-identical canonical strings. |
+
+Related normative documents:
+
+- [Query-string grammar](/docs/reference/query-string) (mirrors `docs/spec/query-string.md`)
+- [Wire format (JSON)](/docs/reference/wire-format) (mirrors `docs/spec/wire-format.md`)
+- [`docs/spec/test-vectors.md`](https://github.com/melihaycicek/querypipe/blob/main/docs/spec/test-vectors.md) — conformance vector format
+- [`docs/api/public-api.d.ts`](https://github.com/melihaycicek/querypipe/blob/main/docs/api/public-api.d.ts) — the frozen public API surface

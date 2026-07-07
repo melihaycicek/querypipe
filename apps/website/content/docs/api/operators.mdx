@@ -1,0 +1,57 @@
+---
+title: Operators
+description: The closed MVP operator set — arity and applicability per field kind.
+---
+
+Fourteen operators, combined with root-level **AND** in v0.1. The set is closed: tokens are
+identical on every wire (string, JSON, and the future Java port).
+
+## Arity
+
+| Operators | Value parts |
+| --- | --- |
+| `isNull`, `notNull` | none — a value is `INVALID_VALUE` (and a compile error in the builder) |
+| `between` | exactly 2 |
+| `in`, `notIn` | ≥ 1 (capped by `maxInItems`) |
+| all others | exactly 1 |
+
+## Applicability by field kind
+
+| Operators | Applicable kinds |
+| --- | --- |
+| `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `between`, `in`, `notIn` | number, string, date, boolean, enum |
+| `contains`, `startsWith`, `endsWith` | string, enum |
+| `isNull`, `notNull` | all (custom included) |
+
+A valid operator applied to an inapplicable kind is `INVALID_OPERATOR`. `custom` field values
+are not wire-portable, so custom fields are **null-checks-only** in v0.1 (value codecs are a
+v0.2 extension).
+
+## Semantics notes
+
+- `contains` / `startsWith` / `endsWith` are always **literal** matches. User input never
+  becomes a `RegExp` or pattern language. Their values are plain string fragments regardless of
+  the field kind — an enum field's `contains` fragment need not be an enum member, and
+  Standard Schema value hooks do not run on fragments.
+- `between` is inclusive on both ends (`gte` + `lte` in adapter terms).
+- `in`/`notIn` compare against a typed value list; empty lists are rejected.
+- Types enforce all of this at compile time in the builder:
+
+```ts
+import { createQuery, dateField, numberField } from "querypipe";
+
+const q = createQuery({
+  fields: { id: numberField(), price: numberField(), deletedAt: dateField() },
+  stableBy: "id",
+});
+
+q.filter("price", "between", [1000, 5000]); // ok: readonly [number, number]
+q.filter("deletedAt", "isNull");            // ok: no value parameter exists
+```
+
+```ts no-check
+// Each of these is a COMPILE error (shown here for illustration):
+q.filter("price", "between", [1000]);   // wrong arity
+q.filter("deletedAt", "isNull", "x");   // isNull takes no value
+q.filter("price", "contains", "9");     // contains needs a string/enum field
+```
