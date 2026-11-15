@@ -17,6 +17,8 @@ parse/validate sit on an untrusted boundary. Without limits, a hostile query str
    | `maxValueLength` | 256 | Max length of any single decoded value, measured in UTF-16 code units on the value's string form (`String(number)`, `"true"/"false"`, ISO date string, raw string). Applies to each `in` item and to `cursor`. |
    | `maxInItems` | 100 | Max items in an `in`/`notIn` list. |
 
+   v0.1.1 adds two guards — `maxLimit` (page-size cap, default none) and `maxErrors` (error-list cap, default 50); see [ADR-0012](0012-boundary-hardening.md) §1–2.
+
 2. Error-code mapping (codes are a closed set, ADR-0003):
    - `maxSortColumns` breach ⇒ `MAX_SORT_EXCEEDED` (single error for the segment, not one per extra column).
    - `maxFilters` breach ⇒ `MAX_FILTER_EXCEEDED` (single error).

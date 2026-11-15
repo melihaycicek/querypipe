@@ -10,7 +10,8 @@
     "test": "pnpm --filter querypipe --filter \"@querypipe/*\" -r test",
     "typecheck": "pnpm --filter querypipe --filter \"@querypipe/*\" -r typecheck",
     "check:contract": "tsc --noEmit --strict --target es2020 --moduleResolution bundler --module esnext docs/api/public-api.d.ts",
-    "check": "pnpm build && pnpm typecheck && pnpm test && pnpm check:contract",
+    "check:package": "pnpm --filter querypipe exec publint && pnpm --filter querypipe exec attw --pack . && pnpm --filter querypipe size",
+    "check": "pnpm build && pnpm typecheck && pnpm check:contract && pnpm test && pnpm check:package",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm build && changeset publish"

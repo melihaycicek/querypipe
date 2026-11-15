@@ -1,6 +1,6 @@
 ---
 title: ADR index
-description: All eleven architecture decision records, with one-line summaries and links to the full texts.
+description: All twelve architecture decision records, with one-line summaries and links to the full texts.
 ---
 
 Every architectural decision is recorded as an ADR in the repository — read them to understand
@@ -20,6 +20,7 @@ Every architectural decision is recorded as an ADR in the repository — read th
 | [0009](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0009-standard-schema.md) | Optional value validation via Standard Schema | Zod/Valibot/ArkType plug in through the dependency-free `~standard` interface; sync-only in v0.1. |
 | [0010](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0010-dialect-plugins.md) | Syntax dialect plugin interface (reserved for v0.2) | Foreign syntaxes (page=, JSON:API, OData) translate at the boundary into the same canonical spec. |
 | [0011](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0011-java-portability.md) | Java portability constraints | Everything must deserialize into sealed Java types from the same JSON and produce byte-identical canonical strings. |
+| [0012](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0012-boundary-hardening.md) | Boundary hardening & filter removal (v0.1.1) | Opt-in `maxLimit`, bounded error output, safe-integer and real-calendar-date checks, declared-fields-only lookup, `removeFilter` / `clearFilters` / `clearSorts`. |
 
 Related normative documents:
 

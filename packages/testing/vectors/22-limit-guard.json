@@ -1,0 +1,73 @@
+{
+  "suite": "limit-guard",
+  "description": "The opt-in maxLimit guard caps the page size a wire may request (ADR-0012 §1). A breach is a guard error — VALUE_TOO_LONG with field 'limit' — identical on the string and JSON ingress paths. The limit itself is inclusive; an absent limit is not a breach.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "guards": { "maxLimit": 100 },
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-limit-at-cap-accepted",
+      "op": "parse",
+      "input": "limit=100",
+      "expect": { "ok": true, "spec": { "filters": [], "sorts": [], "limit": 100 } }
+    },
+    {
+      "name": "parse-limit-above-cap-rejected",
+      "op": "parse",
+      "input": "limit=101",
+      "expect": { "ok": false, "errors": [{ "code": "VALUE_TOO_LONG", "field": "limit" }] }
+    },
+    {
+      "name": "parse-huge-limit-rejected",
+      "op": "parse",
+      "input": "sort=price:desc&limit=9007199254740991",
+      "expect": { "ok": false, "errors": [{ "code": "VALUE_TOO_LONG", "field": "limit" }] }
+    },
+    {
+      "name": "parse-absent-limit-is-not-a-breach",
+      "op": "parse",
+      "input": "sort=price:desc&offset=5000",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [],
+          "sorts": [{ "field": "price", "direction": "desc", "priority": 1 }],
+          "offset": 5000
+        }
+      },
+      "note": "maxLimit never injects a limit into the spec (that would break the round-trip laws); applying a default page size is the executor's job."
+    },
+    {
+      "name": "validate-limit-above-cap-rejected",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "limit": 101 },
+      "expect": { "ok": false, "errors": [{ "code": "VALUE_TOO_LONG", "field": "limit" }] }
+    },
+    {
+      "name": "validate-limit-at-cap-accepted",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "limit": 100 },
+      "expect": { "ok": true }
+    },
+    {
+      "name": "apply-limit-above-cap-rejected",
+      "op": "apply",
+      "spec": { "filters": [], "sorts": [], "limit": 500 },
+      "rows": [{ "id": 1 }],
+      "expect": { "ok": false, "errors": [{ "code": "VALUE_TOO_LONG", "field": "limit" }] }
+    },
+    {
+      "name": "validate-malformed-limit-is-not-a-guard-breach",
+      "op": "validate",
+      "spec": { "filters": [], "sorts": [], "limit": -5 },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "limit" }] }
+    }
+  ]
+}

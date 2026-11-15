@@ -118,7 +118,9 @@ export function buildDef(definition: unknown): QueryDef {
     fail("fields must be an object");
   }
 
-  const fields: Record<string, InternalField> = {};
+  // Prototype-less: `fields[name]` must only ever see declared fields, never
+  // Object.prototype members such as "constructor" or "__proto__" (ADR-0012 §5).
+  const fields: Record<string, InternalField> = Object.create(null);
   const wireToName = new Map<string, string>();
   for (const [name, raw] of Object.entries(d.fields as Record<string, unknown>)) {
     if (!IDENT_RE.test(name)) fail(`invalid field name "${name}"`);
@@ -197,6 +199,19 @@ export class QueryImpl {
     return this.next({ ...this.spec, filters: [...this.spec.filters, cond] });
   }
 
+  removeFilter(field: string, op?: string): QueryImpl {
+    this.fieldFor(field);
+    if (op !== undefined && !isOperator(op)) fail(`unknown operator "${String(op)}"`);
+    const filters = this.spec.filters.filter(
+      (n) => !(n.kind === "condition" && n.field === field && (op === undefined || n.op === op)),
+    );
+    return filters.length === this.spec.filters.length ? this : this.next({ ...this.spec, filters });
+  }
+
+  clearFilters(): QueryImpl {
+    return this.spec.filters.length === 0 ? this : this.next({ ...this.spec, filters: [] });
+  }
+
   /* ---- progressive sorting (ADR-0002 §2) ---- */
 
   private sortItem(
@@ -269,6 +284,10 @@ export class QueryImpl {
     const current = sorts[idx] as SortCondition;
     sorts[idx] = { ...current, direction: current.direction === "asc" ? "desc" : "asc" };
     return this.withSorts(sorts);
+  }
+
+  clearSorts(): QueryImpl {
+    return this.spec.sorts.length === 0 ? this : this.withSorts([]);
   }
 
   /* ---- pagination (cursor ⊕ offset enforced structurally) ---- */

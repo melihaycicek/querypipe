@@ -1,6 +1,6 @@
 {
   "name": "querypipe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A typed query behavior engine for filtering, progressive multi-sorting, pagination and backend-safe query generation.",
   "license": "MIT",
   "keywords": [

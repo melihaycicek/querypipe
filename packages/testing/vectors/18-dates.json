@@ -83,6 +83,54 @@
       "note": "Syntax alone is not enough — the value must be a real date."
     },
     {
+      "name": "parse-day-beyond-month-length-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:eq:2024-02-31",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] },
+      "note": "Lenient platform parsers roll this over to March 2 — implementations must check the calendar themselves (ADR-0012 §4)."
+    },
+    {
+      "name": "parse-feb-29-in-non-leap-year-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:eq:2023-02-29",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] }
+    },
+    {
+      "name": "parse-century-non-leap-year-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:eq:1900-02-29",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] },
+      "note": "Proleptic Gregorian rule: divisible by 100 but not by 400 is not a leap year."
+    },
+    {
+      "name": "parse-leap-day-accepted",
+      "op": "parse",
+      "input": "filter=deletedAt:in:2024-02-29,2000-02-29",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "deletedAt", "op": "in", "value": ["2024-02-29", "2000-02-29"] }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-datetime-with-impossible-day-rejected",
+      "op": "parse",
+      "input": "filter=deletedAt:eq:2024-04-31T10%3A00%3A00Z",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] }
+    },
+    {
+      "name": "validate-day-beyond-month-length-rejected",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "deletedAt", "op": "eq", "value": "2024-06-31" }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "deletedAt", "op": "eq" }] },
+      "note": "Same rule on the JSON ingress path."
+    },
+    {
       "name": "roundtrip-date-values-kept-as-given",
       "op": "roundtrip-spec",
       "spec": {

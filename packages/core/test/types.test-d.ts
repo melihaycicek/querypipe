@@ -65,6 +65,17 @@ it("custom fields are null-checks-only in v0.1", () => {
   q.sort("rank");
 });
 
+it("removal methods are schema-typed", () => {
+  // @ts-expect-error typo'd field name is a compile error
+  q.removeFilter("pricee");
+  // @ts-expect-error non-filterable fields are excluded
+  q.removeFilter("secret");
+  // @ts-expect-error operator must come from the closed set
+  q.removeFilter("price", "like");
+  q.removeFilter("price");
+  q.removeFilter("price", "between").clearFilters().clearSorts().sort("price");
+});
+
 it("builder output is a QuerySpec", () => {
   expectTypeOf(q.toSpec()).toMatchTypeOf<QuerySpec>();
   expectTypeOf(q.apply([{ id: 1 }])).toEqualTypeOf<{ id: number }[]>();

@@ -208,6 +208,10 @@ export interface GuardConfig {
   readonly maxValueLength?: number;
   /** Max items of an in/notIn list (default 100). */
   readonly maxInItems?: number;
+  /** Max `limit` a wire may request (default: no cap). Never injects a limit. ADR-0012 §1. */
+  readonly maxLimit?: number;
+  /** Max errors returned by one parse/validate — the first ones, in input order (default 50). ADR-0012 §2. */
+  readonly maxErrors?: number;
 }
 
 export interface QueryDefinition<F extends FieldMap> {
@@ -257,6 +261,13 @@ export interface Query<F extends FieldMap> {
   ): Query<F>;
   /** isNull/notNull accept no value parameter (compile-enforced). */
   filter<K extends FilterableField<F>>(field: K, op: "isNull" | "notNull"): Query<F>;
+  /**
+   * Removes every condition on `field` — or only those using `op` when given.
+   * Nothing to remove ⇒ no-op (same instance). Replace = `removeFilter` + `filter`.
+   */
+  removeFilter(field: FilterableField<F>, op?: Operator): Query<F>;
+  /** Removes all filters. Already empty ⇒ no-op. */
+  clearFilters(): Query<F>;
 
   /* ---- progressive sorting (ADR-0002 §2) ---- */
   /** Resets the chain; `field` becomes priority 1. */
@@ -282,6 +293,8 @@ export interface Query<F extends FieldMap> {
   removeSort(field: SortableField<F>): Query<F>;
   /** Flips asc/desc in place (priority and nulls kept). Absent field ⇒ no-op. */
   toggleSortDirection(field: SortableField<F>): Query<F>;
+  /** Empties the sort chain. Already empty ⇒ no-op. */
+  clearSorts(): Query<F>;
 
   /* ---- pagination (offset/limit canonical; cursor opaque in v0.1) ---- */
   limit(limit: number): Query<F>;
@@ -327,6 +340,9 @@ export interface ResolvedGuards {
   readonly maxFilters: number;
   readonly maxValueLength: number;
   readonly maxInItems: number;
+  /** `Infinity` when uncapped. */
+  readonly maxLimit: number;
+  readonly maxErrors: number;
 }
 
 export interface QueryDef {

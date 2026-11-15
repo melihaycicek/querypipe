@@ -16,7 +16,11 @@ export function qerr(
   return e;
 }
 
-/** Cap raw tokens quoted inside error messages. */
+/**
+ * Cap raw wire tokens echoed back in errors (`field`, `op`, message text) at
+ * 64 UTF-16 code units + "…" so error size never scales with input size
+ * (ADR-0012 §2). Declared schema field names are never truncated.
+ */
 export function truncate(token: string): string {
-  return token.length > 40 ? `${token.slice(0, 40)}…` : token;
+  return token.length > 64 ? `${token.slice(0, 64)}…` : token;
 }

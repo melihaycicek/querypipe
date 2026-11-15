@@ -22,6 +22,7 @@ When a design decision is ambiguous, the priority order is:
 | [0009](0009-standard-schema.md) | Optional value validation via Standard Schema | Accepted |
 | [0010](0010-dialect-plugins.md) | Syntax dialect plugin interface (reserved for v0.2) | Accepted |
 | [0011](0011-java-portability.md) | Java portability constraints | Accepted |
+| [0012](0012-boundary-hardening.md) | Boundary hardening & filter removal (v0.1.1) | Accepted |
 
 Related specifications (normative):
 

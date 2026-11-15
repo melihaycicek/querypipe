@@ -25,7 +25,7 @@ Vectors live in `packages/testing/vectors/*.json`. They are **written before the
 }
 ```
 
-- `schema` is a declarative, language-independent field map. `type` ∈ `number | string | date | boolean | enum`; optional `sortable`/`filterable` (default `true`), `alias`, `values` (enum only). Omitted `guards` (or omitted individual guard keys) mean the engine defaults (3 / 10 / 256 / 100). `custom` fields (arbitrary comparators) and `locale` collation are **not JSON-expressible / not deterministic across ICU builds** and are deliberately excluded from vectors — they are covered by per-language unit tests (ADR-0008, ADR-0011).
+- `schema` is a declarative, language-independent field map. `type` ∈ `number | string | date | boolean | enum`; optional `sortable`/`filterable` (default `true`), `alias`, `values` (enum only). Omitted `guards` (or omitted individual guard keys) mean the engine defaults (3 / 10 / 256 / 100). Two further guard keys exist since v0.1.1 and are omitted from most files: `maxLimit` (default: no cap) and `maxErrors` (default 50) — ADR-0012. `custom` fields (arbitrary comparators) and `locale` collation are **not JSON-expressible / not deterministic across ICU builds** and are deliberately excluded from vectors — they are covered by per-language unit tests (ADR-0008, ADR-0011).
 - `idField` (default `"id"`) is the row property projected by `apply` expectations.
 
 ## Engine seam

@@ -1,4 +1,4 @@
-/** Site-wide constants. Claims here must be true of querypipe v0.1.0. */
+/** Site-wide constants. Claims here must be true of querypipe v0.1.1. */
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://querypipe.dev").replace(
   /\/$/,
@@ -11,13 +11,13 @@ export const NPM_URL = "https://www.npmjs.com/package/querypipe";
 export const SITE_NAME = "querypipe";
 export const SITE_TITLE = "querypipe — one typed query contract from URL to database";
 export const SITE_DESCRIPTION =
-  "Type-safe filtering, progressive multi-sort and pagination in one canonical, backend-safe QuerySpec. Zero dependencies · 7.4 kB · never throws.";
+  "Type-safe filtering, progressive multi-sort and pagination in one canonical, backend-safe QuerySpec. Zero dependencies · 7.6 kB · never throws.";
 
 export const HEADLINE = "One typed contract from URL to database.";
 
 export const STATS = [
   { value: "0", label: "dependencies" },
-  { value: "≈7.4 kB", label: "min+gzip" },
+  { value: "≈7.6 kB", label: "min+gzip" },
   { value: "182", label: "conformance tests" },
 ] as const;
 

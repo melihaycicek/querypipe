@@ -6,7 +6,7 @@ Thanks for your interest. querypipe is a **contract-first** library: the conform
 
 1. **The wire format is frozen.** The `QuerySpec` shape, the JSON wire format and the canonical string grammar don't change outside a major version. New capabilities unlock *behavior*, not *shape* (see the [roadmap](docs/ROADMAP.md)). If your idea needs a new wire field or operator, open an issue first and expect it to be weighed against **Java portability** — the top priority.
 2. **Vectors before implementation.** A behavior change lands as a failing JSON vector in [`packages/testing/vectors/`](packages/testing/vectors) *first*, then the code that makes it pass. The same files are the acceptance suite for the future `querypipe-java` port, so they must stay language-independent (no `custom` comparators, no locale collation).
-3. **Decisions get an ADR.** Anything architectural is recorded in [`docs/adr/`](docs/adr). Read the existing 11 before proposing a change; reference the ADR your PR touches.
+3. **Decisions get an ADR.** Anything architectural is recorded in [`docs/adr/`](docs/adr). Read the existing 12 before proposing a change; reference the ADR your PR touches.
 4. **No new runtime dependencies in `querypipe`.** Zero-dependency is a hard constraint. Adapters and dialects live in their own scoped packages.
 
 ## Priority order for any trade-off

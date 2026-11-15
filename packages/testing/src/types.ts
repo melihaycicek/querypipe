@@ -17,6 +17,8 @@ export interface VectorGuards {
   readonly maxFilters?: number;
   readonly maxValueLength?: number;
   readonly maxInItems?: number;
+  readonly maxLimit?: number;
+  readonly maxErrors?: number;
 }
 
 export interface VectorSchema {

@@ -125,6 +125,26 @@
           { "code": "NOT_SORTABLE", "field": "secret" }
         ]
       }
+    },
+    {
+      "name": "validate-host-object-member-names-are-unknown-fields",
+      "op": "validate",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "constructor", "op": "eq", "value": 1 },
+          { "kind": "condition", "field": "__proto__", "op": "isNull" }
+        ],
+        "sorts": [{ "field": "toString", "direction": "asc", "priority": 1 }]
+      },
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "constructor" },
+          { "code": "UNKNOWN_FIELD", "field": "__proto__" },
+          { "code": "UNKNOWN_FIELD", "field": "toString" }
+        ]
+      },
+      "note": "Field lookup is by declared schema fields only — names inherited from the host language's base object (JS Object.prototype, Java Object methods) are never fields (ADR-0012 §5)."
     }
   ]
 }

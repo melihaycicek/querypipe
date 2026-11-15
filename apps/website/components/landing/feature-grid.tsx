@@ -23,7 +23,7 @@ const FEATURES = [
   {
     eyebrow: "0 deps",
     title: "Tiny & dependency-free",
-    body: "Zero runtime dependencies, ESM + CJS with correct types for both, fully tree-shakable, ≈7.4 kB min+gzip. Runs on Node ≥ 18.17 and any modern browser.",
+    body: "Zero runtime dependencies, ESM + CJS with correct types for both, fully tree-shakable, ≈7.6 kB min+gzip. Runs on Node ≥ 18.17 and any modern browser.",
   },
   {
     eyebrow: "QueryResult<T>",

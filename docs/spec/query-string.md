@@ -39,10 +39,10 @@ value        = percent-encoded text (see Escaping)
 
 | Kind | Accepted token | Spec value |
 | ---- | -------------- | ---------- |
-| number | `-?digits[.digits]` (strict; no exponent, no `NaN`/`Infinity`) | JSON number |
+| number | `-?digits[.digits]` (strict; no exponent, no `NaN`/`Infinity`); the converted value must satisfy `\|n\| ≤ 2^53 − 1` (ADR-0012 §3) | JSON number |
 | string | any decoded text (may be empty) | string |
 | boolean | `true` / `false` (lowercase only) | boolean |
-| date | `YYYY-MM-DD` or ISO-8601 datetime **with mandatory `Z`/offset**, must be a real date | the validated string, kept as given |
+| date | `YYYY-MM-DD` or ISO-8601 datetime **with mandatory `Z`/offset**, must be a real date — the day may not exceed the month's length (proleptic Gregorian; `2024-02-31` and `2023-02-29` are invalid, ADR-0012 §4) | the validated string, kept as given |
 | enum | one of the declared values (case-sensitive) | string |
 | custom | any decoded text | string |
 
@@ -73,7 +73,9 @@ A valid operator applied to an inapplicable kind ⇒ `INVALID_OPERATOR`. `custom
 
 Accepted leniencies (parse only; output is always canonical): segments in any order; omitted sort direction; lowercase hex and over-encoding in percent-escapes.
 
-Rejections: empty segments or list items (`sort=`, `filter=a:eq:1;;b:eq:2`, trailing separators) ⇒ `INVALID_VALUE`; duplicate segment keys ⇒ `INVALID_VALUE`; duplicate sort fields ⇒ `INVALID_VALUE`; malformed segment (no `=`) ⇒ `INVALID_VALUE`; unknown segment key (e.g. `page=`) ⇒ `UNKNOWN_FIELD`; unknown field/alias ⇒ `UNKNOWN_FIELD`; non-sortable in `sort` ⇒ `NOT_SORTABLE`; non-filterable in `filter` ⇒ `NOT_FILTERABLE`; unknown operator token, or an operator not applicable to the field kind ⇒ `INVALID_OPERATOR`; `version` ≠ 1 ⇒ `INVALID_VALUE`; `offset` and `cursor` together ⇒ `CONFLICTING_PAGINATION`. Errors are collected, not short-circuited (input order).
+Rejections: empty segments or list items (`sort=`, `filter=a:eq:1;;b:eq:2`, trailing separators) ⇒ `INVALID_VALUE`; duplicate segment keys ⇒ `INVALID_VALUE`; duplicate sort fields ⇒ `INVALID_VALUE`; malformed segment (no `=`) ⇒ `INVALID_VALUE`; unknown segment key (e.g. `page=`) ⇒ `UNKNOWN_FIELD`; unknown field/alias ⇒ `UNKNOWN_FIELD`; non-sortable in `sort` ⇒ `NOT_SORTABLE`; non-filterable in `filter` ⇒ `NOT_FILTERABLE`; unknown operator token, or an operator not applicable to the field kind ⇒ `INVALID_OPERATOR`; `version` ≠ 1 ⇒ `INVALID_VALUE`; `offset` and `cursor` together ⇒ `CONFLICTING_PAGINATION`; `limit` above the schema's `maxLimit` guard (when set) ⇒ `VALUE_TOO_LONG` with `field: "limit"`. Errors are collected, not short-circuited (input order).
+
+Error output is bounded (ADR-0012 §2): at most `maxErrors` errors are returned (default 50 — the first ones in input order), and a raw token echoed in an error's `field` or `op` (unknown field, unknown segment key, unknown operator) is truncated to 64 UTF-16 code units followed by `…` (U+2026).
 
 ## Canonical output (`stringifyQuery`)
 

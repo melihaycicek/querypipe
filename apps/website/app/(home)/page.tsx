@@ -29,7 +29,7 @@ export default function LandingPage() {
           <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
             Type-safe filtering, progressive multi-sort and pagination in one canonical,
             backend-safe <span className="font-mono text-sm">QuerySpec</span>. Zero dependencies ·
-            7.4 kB · never throws.
+            7.6 kB · never throws.
           </p>
 
           <div className="mt-8">
@@ -145,6 +145,6 @@ function jsonLd() {
     programmingLanguage: "TypeScript",
     runtimePlatform: "Node.js >= 18.17",
     license: "https://opensource.org/licenses/MIT",
-    version: "0.1.0",
+    version: "0.1.1",
   };
 }

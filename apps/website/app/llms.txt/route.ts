@@ -16,7 +16,7 @@ export function GET(): Response {
 
   const text = `# querypipe
 
-> A typed query behavior engine for filtering, progressive multi-sorting, pagination and backend-safe query generation. One type-safe QuerySpec bridging URL state, table UI state and backend execution. Zero dependencies, ESM + CJS, ≈7.4 kB min+gzip, MIT, v0.1.0.
+> A typed query behavior engine for filtering, progressive multi-sorting, pagination and backend-safe query generation. One type-safe QuerySpec bridging URL state, table UI state and backend execution. Zero dependencies, ESM + CJS, ≈7.6 kB min+gzip, MIT, v0.1.1.
 
 - Install: npm install querypipe
 - GitHub: https://github.com/melihaycicek/querypipe
@@ -27,7 +27,7 @@ export function GET(): Response {
 
 Runtime exports: createQuery · numberField stringField dateField booleanField enumField customField · parseQuery stringifyQuery validateQuerySpec canonicalize applyQuery · isOk isErr
 Type exports: QuerySpec SortCondition FilterNode FilterCondition FilterGroup Operator QueryError QueryErrorCode FieldSchema QueryResult
-Builder methods: filter · sort · thenSort · insertSortAfter · removeSort · toggleSortDirection · limit · offset · cursor · withSpec · toSpec · stringify · parse · apply
+Builder methods: filter · removeFilter · clearFilters · sort · thenSort · insertSortAfter · removeSort · toggleSortDirection · clearSorts · limit · offset · cursor · withSpec · toSpec · stringify · parse · apply
 Operators: eq neq gt gte lt lte in notIn between contains startsWith endsWith isNull notNull (root-level AND; contains/startsWith/endsWith are literal, never patterns; isNull/notNull take no value)
 Error codes: UNKNOWN_FIELD NOT_SORTABLE NOT_FILTERABLE INVALID_OPERATOR INVALID_VALUE MAX_SORT_EXCEEDED MAX_FILTER_EXCEEDED VALUE_TOO_LONG CONFLICTING_PAGINATION
 Errors carry { code, field?, op?, message, position? } — position is a 0-based index into the parse input. parse/validate never throw; only schema/builder misuse throws TypeError.

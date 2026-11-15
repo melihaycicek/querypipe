@@ -40,7 +40,7 @@ Query strings arrive from untrusted wires. A backend must be able to reject a ma
    - Guard breaches ⇒ `MAX_SORT_EXCEEDED`, `MAX_FILTER_EXCEEDED`, `VALUE_TOO_LONG` (ADR-0006 maps `maxInItems` onto `VALUE_TOO_LONG` with `op` set).
    - `cursor` and `offset` together ⇒ `CONFLICTING_PAGINATION`.
 
-5. **Multi-error collection.** Parsing and validation continue past the first failure and return every independent error (order = input order). One malformed filter item does not mask the next.
+5. **Multi-error collection.** Parsing and validation continue past the first failure and return every independent error (order = input order). One malformed filter item does not mask the next. Since v0.1.1 the list is bounded by the `maxErrors` guard (default 50, first errors in input order) and raw tokens echoed in `field`/`op` are truncated at 64 code units — [ADR-0012](0012-boundary-hardening.md) §2.
 
 6. `message` is intentionally excluded from conformance matching (implementations word it freely; the Java port localizes differently). `code`, `field`, `op`, `position` are the machine contract.
 

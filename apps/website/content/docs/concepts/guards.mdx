@@ -37,6 +37,8 @@ is a compile error, and the same rule is enforced at runtime for wire input.
 | `maxFilters` (counted as leaves) | 10 | `MAX_FILTER_EXCEEDED` |
 | `maxValueLength` (UTF-16 length of a decoded value) | 256 | `VALUE_TOO_LONG` |
 | `maxInItems` (items of an `in`/`notIn` list) | 100 | `VALUE_TOO_LONG` |
+| `maxLimit` (largest `limit` a wire may request) | none | `VALUE_TOO_LONG` with `field: "limit"` |
+| `maxErrors` (errors returned by one parse/validate) | 50 | — (the list is cut to the first 50) |
 
 Override per schema:
 
@@ -44,12 +46,35 @@ Override per schema:
 const limited = createQuery({
   fields: { id: numberField(), price: numberField() },
   stableBy: "id",
-  guards: { maxSortColumns: 2, maxFilters: 5, maxValueLength: 64, maxInItems: 20 },
+  guards: { maxSortColumns: 2, maxFilters: 5, maxValueLength: 64, maxInItems: 20, maxLimit: 100 },
 });
+
+limited.parse("limit=100"); // ok
+limited.parse("limit=101"); // → VALUE_TOO_LONG, field: "limit"
 ```
+
+**Set `maxLimit` on every schema that faces a database.** It is opt-in in v0.1 — without it,
+`limit=9007199254740991` is a valid request. `maxLimit` only rejects; it never adds a limit to a
+query that has none, so apply your default page size where you execute the spec
+(`take: spec.limit ?? 50`).
 
 The injected `stableBy` tie-breaker does **not** count against `maxSortColumns` — it is added at
 execution time, never into the spec.
+
+## Bounded error output
+
+Error responses cannot be inflated by hostile input: one parse or validate returns at most
+`maxErrors` errors (the first ones, in input order), and an unknown field, segment key or
+operator echoed back in `error.field` / `error.op` is truncated to 64 characters plus `…`.
+
+## Exact values only
+
+Two classes of value are rejected with `INVALID_VALUE` because they cannot mean what they say:
+
+- **Integers beyond ±(2^53 − 1).** A double cannot hold them, so `id:eq:9007199254740993` would
+  silently become `…992` and match a different row. Declare snowflake/`BIGINT` identifiers as
+  `stringField()`.
+- **Impossible calendar days** such as `2024-02-31` or `2023-02-29`.
 
 ## The no-RegExp rule
 

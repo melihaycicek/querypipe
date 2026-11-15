@@ -38,7 +38,7 @@ It is **not** a UI library, **not** an ORM, and **not** a state manager. It does
 - 🔀 **Progressive sorting as a first-class semantic.** `sort` resets, `thenSort` appends **without disturbing** prior priorities, `insertSortAfter` / `removeSort` / `toggleSortDirection` edit the chain in place; priorities renormalize to `1..n` on every step. This is the "shift-click a second column header to refine the order" behavior, modeled properly.
 - 🛡️ **Backend-safe by default.** A mandatory field whitelist (there is **no** schema-less parse), guard limits (sort columns, filter count, value length, `IN` size), no user input ever reaching a `RegExp`/pattern, and a structured **multi-error** `Result` — parse and validate **never throw**.
 - 🎯 **Deterministic.** Canonical, byte-stable `stringify`; stable sort with an automatically injected unique tie-breaker; a fixed SQL `ORDER BY` reference model (PostgreSQL NULL semantics) shared by client `apply` and future adapters.
-- 🪶 **Tiny & dependency-free.** Zero runtime dependencies, ESM + CJS, fully tree-shakable, ≈ 7.4 kB min+gzip. Optional per-field value validation via the dependency-free [Standard Schema](https://standardschema.dev) interface (Zod / Valibot / ArkType plug in with no coupling).
+- 🪶 **Tiny & dependency-free.** Zero runtime dependencies, ESM + CJS, fully tree-shakable, ≈ 7.6 kB min+gzip. Optional per-field value validation via the dependency-free [Standard Schema](https://standardschema.dev) interface (Zod / Valibot / ArkType plug in with no coupling).
 
 ## Install
 
@@ -90,13 +90,15 @@ Every builder method returns a **new** frozen query — undo/redo, `diff` and hi
 ### 3. Accept untrusted input safely (server)
 
 ```ts
-const parsed = products.parse(req.query.q ?? "");
+const parsed = products.parse(req.originalUrl.split("?")[1] ?? ""); // the raw query string
 if (!isOk(parsed)) {
   return res.status(400).json({ errors: parsed.errors });  // structured, machine-readable, all at once
 }
 // parsed.value is whitelisted, guard-limited, injection-safe by construction
 const rows = await db.product.findMany(toPrismaArgs(parsed.value));
 ```
+
+`toPrismaArgs` is **your** ~30-line mapper in v0.1 — copy it from [`examples/express-prisma`](examples/express-prisma/src/server.ts); the official `@querypipe/prisma` adapter replaces it in v0.2. Add `guards: { maxLimit: 100 }` to any schema that faces a database: the page-size cap is opt-in.
 
 ## Feature walkthrough
 
@@ -112,6 +114,19 @@ q = q.removeSort("name");                 // drop it, renormalize to 1..n
 ```
 
 `thenSort` is guaranteed never to change the `(field, direction, priority)` of any pre-existing sort — a property the conformance suite enforces.
+</details>
+
+<details>
+<summary><b>Editing filters</b></summary>
+
+```ts
+let f = products.filter("price", "gt", 100).filter("price", "lt", 500);
+f = f.removeFilter("price", "lt");                       // only price:lt
+f = f.removeFilter("price").filter("price", "gt", 250);  // replace = remove + add
+f = f.clearFilters();                                    // sorts and pagination untouched
+```
+
+`filter()` always appends; removal is explicit. Removing something that isn't there returns the same instance.
 </details>
 
 <details>
@@ -143,6 +158,8 @@ const r = products.parse("sort=secret:asc,nope:asc&filter=price:like:5");
 //   { code: "INVALID_OPERATOR", field: "price", op: "like", position: 40 },
 // ]
 ```
+
+The list is bounded — at most `guards.maxErrors` (default 50) errors, with echoed tokens truncated — so a hostile request can't buy a huge error body.
 
 Closed error-code set: `UNKNOWN_FIELD` · `NOT_SORTABLE` · `NOT_FILTERABLE` · `INVALID_OPERATOR` · `INVALID_VALUE` · `MAX_SORT_EXCEEDED` · `MAX_FILTER_EXCEEDED` · `VALUE_TOO_LONG` · `CONFLICTING_PAGINATION`. Schema/builder *misuse* throws `TypeError` (a bug), data errors return `Result` (input) — the line is mechanical.
 </details>
@@ -190,7 +207,8 @@ The full frozen surface (implementation-free, CI-typechecked) lives at [`docs/ap
 
 Every architectural decision is recorded as an ADR — read them to understand *why* the spec looks the way it does:
 
-- 📐 [Architecture Decision Records](docs/adr/README.md) — 11 ADRs (wire format & discriminated filter AST, immutability, error model, adapter contract, tie-breaker, guards, escaping/canonicalization, NULL semantics, Standard Schema, dialect plugins, Java portability)
+- 📐 [Architecture Decision Records](docs/adr/README.md) — 12 ADRs (wire format & discriminated filter AST, immutability, error model, adapter contract, tie-breaker, guards, escaping/canonicalization, NULL semantics, Standard Schema, dialect plugins, Java portability, boundary hardening)
+- 🔧 [Improvement backlog](docs/IMPROVEMENTS.md) — findings from the post-v0.1.0 review: what v0.1.1 fixed and what is still open
 - 📜 Normative specs: [query-string grammar](docs/spec/query-string.md) · [JSON wire format](docs/spec/wire-format.md) · [conformance test-vector format](docs/spec/test-vectors.md)
 - 🗺️ [**Roadmap & quarterly plan**](docs/ROADMAP.md) — what's reserved, what's next, and the exit criteria for each release
 
@@ -212,7 +230,7 @@ Full quarter-by-quarter detail with exit criteria: **[docs/ROADMAP.md](docs/ROAD
 ```sh
 pnpm install
 pnpm build        # tsup → ESM + CJS + .d.ts
-pnpm test         # vitest: unit + 20 conformance vector files + fast-check invariants
+pnpm test         # vitest: unit + 23 conformance vector files + fast-check invariants
 pnpm typecheck
 pnpm check        # everything CI runs (build, typecheck, tests, publint, attw, size gate)
 ```

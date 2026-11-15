@@ -1,0 +1,143 @@
+{
+  "suite": "error-cap",
+  "description": "Error output is bounded so a small hostile input cannot buy a large error response (ADR-0012 §2): at most maxErrors errors are returned (the first ones, in input order), and raw tokens echoed back in 'field'/'op' are truncated to 64 UTF-16 code units followed by '…' (U+2026).",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "guards": { "maxErrors": 3 },
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-errors-capped-to-the-first-max-errors",
+      "op": "parse",
+      "input": "sort=a,b,c,d,e,f",
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "a", "position": 5 },
+          { "code": "UNKNOWN_FIELD", "field": "b", "position": 7 },
+          { "code": "UNKNOWN_FIELD", "field": "c", "position": 9 }
+        ]
+      }
+    },
+    {
+      "name": "parse-fewer-errors-than-cap-are-all-returned",
+      "op": "parse",
+      "input": "sort=a,b",
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "a" },
+          { "code": "UNKNOWN_FIELD", "field": "b" }
+        ]
+      }
+    },
+    {
+      "name": "validate-errors-capped-to-the-first-max-errors",
+      "op": "validate",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "a", "op": "eq", "value": 1 },
+          { "kind": "condition", "field": "b", "op": "eq", "value": 1 },
+          { "kind": "condition", "field": "c", "op": "eq", "value": 1 },
+          { "kind": "condition", "field": "d", "op": "eq", "value": 1 },
+          { "kind": "condition", "field": "e", "op": "eq", "value": 1 }
+        ],
+        "sorts": []
+      },
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "a" },
+          { "code": "UNKNOWN_FIELD", "field": "b" },
+          { "code": "UNKNOWN_FIELD", "field": "c" }
+        ]
+      }
+    },
+    {
+      "name": "parse-unknown-field-token-of-64-units-echoed-in-full",
+      "op": "parse",
+      "input": "sort=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }
+        ]
+      }
+    },
+    {
+      "name": "parse-unknown-field-token-over-64-units-truncated",
+      "op": "parse",
+      "input": "sort=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxyyyyyyyy",
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…" }
+        ]
+      }
+    },
+    {
+      "name": "parse-unknown-segment-key-truncated",
+      "op": "parse",
+      "input": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkzz=1",
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk…" }
+        ]
+      }
+    },
+    {
+      "name": "parse-unknown-operator-token-truncated",
+      "op": "parse",
+      "input": "filter=price:oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooopp:1",
+      "expect": {
+        "ok": false,
+        "errors": [
+          {
+            "code": "INVALID_OPERATOR",
+            "field": "price",
+            "op": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo…"
+          }
+        ]
+      }
+    },
+    {
+      "name": "validate-unknown-field-and-operator-truncated",
+      "op": "validate",
+      "spec": {
+        "filters": [
+          {
+            "kind": "condition",
+            "field": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffgg",
+            "op": "eq",
+            "value": 1
+          },
+          {
+            "kind": "condition",
+            "field": "price",
+            "op": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooopp",
+            "value": 1
+          }
+        ],
+        "sorts": []
+      },
+      "expect": {
+        "ok": false,
+        "errors": [
+          { "code": "UNKNOWN_FIELD", "field": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff…" },
+          {
+            "code": "INVALID_OPERATOR",
+            "field": "price",
+            "op": "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo…"
+          }
+        ]
+      }
+    }
+  ]
+}

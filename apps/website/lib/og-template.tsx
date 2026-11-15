@@ -49,7 +49,7 @@ export function OgCard({
             padding: "8px 20px",
           }}
         >
-          v0.1 · 0 deps · ≈7.4 kB
+          v0.1 · 0 deps · ≈7.6 kB
         </div>
       </div>
 

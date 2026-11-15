@@ -82,6 +82,9 @@ function ProductTable() {
   const rows = React.useMemo(() => query.apply(DATA), [query]);
 
   const sortState = new Map(spec.sorts.map((s) => [s.field, s]));
+  const inStockOnly = spec.filters.some(
+    (f) => f.kind === "condition" && f.field === "stock" && f.op === "gt",
+  );
 
   const onHeaderClick = (field: "id" | "name" | "price" | "stock" | "category", event: React.MouseEvent) => {
     const existing = sortState.get(field);
@@ -116,9 +119,22 @@ function ProductTable() {
         Click a header to sort, <kbd>shift</kbd>+click to add it to the sort chain (progressive
         sorting). The URL query param <code>q</code> always holds the canonical querypipe string.
       </p>
-      <button onClick={() => void setSpec(query.filter("stock", "gt", 0).toSpec())}>
+      {/* filter() always appends, so a toggle removes first — otherwise every click stacks a duplicate. */}
+      <label>
+        <input
+          type="checkbox"
+          checked={inStockOnly}
+          onChange={() =>
+            void setSpec(
+              (inStockOnly
+                ? query.removeFilter("stock", "gt")
+                : query.filter("stock", "gt", 0)
+              ).toSpec(),
+            )
+          }
+        />{" "}
         In stock only
-      </button>
+      </label>
       <table>
         <thead>
           {table.getHeaderGroups().map((hg) => (

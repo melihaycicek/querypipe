@@ -74,6 +74,103 @@ describe("progressive sort semantics (ADR-0002 §2)", () => {
   });
 });
 
+describe("filter and sort removal (ADR-0012 §6)", () => {
+  it("removeFilter drops every condition on the field, or only the given operator", () => {
+    const q = products()
+      .filter("price", "gt", 10)
+      .filter("stock", "gt", 0)
+      .filter("price", "lt", 500)
+      .sort("name")
+      .limit(20);
+    expect(q.removeFilter("price").stringify()).toBe("sort=name:asc&filter=stock:gt:0&limit=20");
+    expect(q.removeFilter("price", "lt").stringify()).toBe(
+      "sort=name:asc&filter=price:gt:10;stock:gt:0&limit=20",
+    );
+    expect(Object.isFrozen(q.removeFilter("price").toSpec().filters)).toBe(true);
+  });
+
+  it("removeFilter + filter replaces a condition instead of stacking duplicates", () => {
+    const toggle = (q: ReturnType<typeof products>) =>
+      q.toSpec().filters.length > 0 ? q.removeFilter("stock", "gt") : q.filter("stock", "gt", 0);
+    const on = toggle(products());
+    expect(on.stringify()).toBe("filter=stock:gt:0");
+    expect(toggle(on).stringify()).toBe("");
+    expect(on.removeFilter("stock").filter("stock", "gt", 5).stringify()).toBe("filter=stock:gt:5");
+  });
+
+  it("nothing to remove is a no-op that returns the same instance", () => {
+    const q = products().filter("price", "gt", 10);
+    expect(q.removeFilter("stock")).toBe(q);
+    expect(q.removeFilter("price", "lt")).toBe(q);
+    expect(products().clearFilters().toSpec()).toBe(products().toSpec());
+    const empty = products();
+    expect(empty.clearFilters()).toBe(empty);
+    expect(empty.clearSorts()).toBe(empty);
+  });
+
+  it("clearFilters and clearSorts empty one dimension and leave the rest alone", () => {
+    const q = products().filter("price", "gt", 10).sort("price").thenSort("name").offset(40);
+    expect(q.clearFilters().stringify()).toBe("sort=price:asc,name:asc&offset=40");
+    expect(q.clearSorts().stringify()).toBe("filter=price:gt:10&offset=40");
+    expect(q.stringify()).toBe("sort=price:asc,name:asc&filter=price:gt:10&offset=40");
+  });
+
+  it("removeFilter misuse throws TypeError", () => {
+    const loose = products() as unknown as { removeFilter: (...args: unknown[]) => unknown };
+    expect(() => loose.removeFilter("nope")).toThrow(TypeError);
+    expect(() => loose.removeFilter("price", "like")).toThrow(TypeError);
+    expect(() => loose.removeFilter("constructor")).toThrow(TypeError);
+  });
+});
+
+describe("boundary hardening (ADR-0012; not vector-expressible parts)", () => {
+  it("names inherited from Object.prototype are unknown fields everywhere", () => {
+    const q = products();
+    expect(() => q.sort("constructor" as never)).toThrow(/unknown field/);
+    expect(() => q.sort("__proto__" as never)).toThrow(/unknown field/);
+    const parsed = q.parse("sort=toString&filter=hasOwnProperty:isNull");
+    if (!isErr(parsed)) throw new Error("expected errors");
+    expect(parsed.errors.map((e) => e.code)).toEqual(["UNKNOWN_FIELD", "UNKNOWN_FIELD"]);
+  });
+
+  it("a field literally named __proto__ is an ordinary field", () => {
+    const fields = JSON.parse('{"id":{"type":"number"},"__proto__":{"type":"number"}}');
+    const q = createQuery({ fields } as never);
+    expect(isOk(q.parse("sort=__proto__"))).toBe(true);
+    expect(isErr(q.parse("sort=type"))).toBe(true);
+  });
+
+  it("builder rejects numbers and dates the wire could not carry exactly", () => {
+    const q = products();
+    expect(() => q.filter("id", "eq", 2 ** 53)).toThrow(TypeError);
+    expect(q.filter("id", "eq", Number.MAX_SAFE_INTEGER).stringify()).toBe(
+      "filter=id:eq:9007199254740991",
+    );
+    expect(() => q.filter("createdAt", "eq", "2024-02-31")).toThrow(TypeError);
+    expect(q.filter("createdAt", "eq", "2024-02-29").stringify()).toBe(
+      "filter=createdAt:eq:2024-02-29",
+    );
+  });
+
+  it("guard options are validated at construction; maxLimit defaults to uncapped", () => {
+    expect(() => createQuery({ fields: { a: numberField() }, guards: { maxLimit: 0 } })).toThrow(TypeError);
+    expect(() => createQuery({ fields: { a: numberField() }, guards: { maxErrors: 1.5 } })).toThrow(
+      TypeError,
+    );
+    expect(isOk(products().parse("limit=9007199254740991"))).toBe(true);
+  });
+
+  it("the default error cap bounds hostile input; a raised cap restores full collection", () => {
+    const junk = "a&".repeat(500);
+    const capped = products().parse(junk);
+    if (!isErr(capped)) throw new Error("expected errors");
+    expect(capped.errors).toHaveLength(50);
+    const wide = createQuery({ fields: { id: numberField() }, guards: { maxErrors: 1000 } }).parse(junk);
+    if (!isErr(wide)) throw new Error("expected errors");
+    expect(wide.errors).toHaveLength(501);
+  });
+});
+
 describe("immutability (ADR-0002 §1)", () => {
   it("every mutation returns a new query and freezes its spec", () => {
     const base = products();

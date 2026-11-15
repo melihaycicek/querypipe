@@ -1,6 +1,6 @@
 import { checkJsonValue, runStandardSchema } from "./convert";
-import { qerr } from "./errors";
-import { applyGuards } from "./guards";
+import { qerr, truncate } from "./errors";
+import { applyGuards, capErrors } from "./guards";
 import { OPERATORS, isOperator, isStringOp } from "./ops";
 import type { FilterCondition, QueryDef, QueryError, QuerySpec, SortCondition } from "./types";
 
@@ -36,7 +36,7 @@ export function validateSpecInternal(def: QueryDef, spec: QuerySpec): QueryError
 
   validatePagination(spec, errors);
   errors.push(...applyGuards(def, spec));
-  return errors;
+  return capErrors(def, errors);
 }
 
 function validateNode(def: QueryDef, node: unknown, errors: QueryError[]): void {
@@ -64,7 +64,7 @@ function validateNode(def: QueryDef, node: unknown, errors: QueryError[]): void 
   }
   const field = def.fields[cond.field];
   if (field === undefined) {
-    errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: cond.field }));
+    errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: truncate(cond.field) }));
     return;
   }
   if (!field.filterable) {
@@ -72,7 +72,9 @@ function validateNode(def: QueryDef, node: unknown, errors: QueryError[]): void 
     return;
   }
   if (typeof cond.op !== "string" || !isOperator(cond.op)) {
-    errors.push(qerr("INVALID_OPERATOR", "unknown operator", { field: cond.field, op: String(cond.op) }));
+    errors.push(
+      qerr("INVALID_OPERATOR", "unknown operator", { field: cond.field, op: truncate(String(cond.op)) }),
+    );
     return;
   }
   const meta = OPERATORS[cond.op];
@@ -153,7 +155,7 @@ function validateSort(def: QueryDef, sort: unknown, seen: Set<string>, errors: Q
   };
   const field = def.fields[s.field];
   if (field === undefined) {
-    errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: s.field }));
+    errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: truncate(s.field) }));
     return;
   }
   if (!field.sortable) {

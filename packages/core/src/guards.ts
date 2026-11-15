@@ -17,9 +17,11 @@ export const DEFAULT_GUARDS: ResolvedGuards = {
   maxFilters: 10,
   maxValueLength: 256,
   maxInItems: 100,
+  maxLimit: Infinity, // opt-in (ADR-0012 §1)
+  maxErrors: 50,
 };
 
-const GUARD_KEYS = ["maxSortColumns", "maxFilters", "maxValueLength", "maxInItems"] as const;
+const GUARD_KEYS = Object.keys(DEFAULT_GUARDS) as ReadonlyArray<keyof ResolvedGuards>;
 
 /** Merge with defaults; construction misuse throws (ADR-0003 §2). */
 export function resolveGuards(config: GuardConfig | undefined): ResolvedGuards {
@@ -78,7 +80,17 @@ export function applyGuards(def: QueryDef, spec: QuerySpec): QueryError[] {
     errors.push(qerr("VALUE_TOO_LONG", `cursor too long (max ${g.maxValueLength})`, { field: "cursor" }));
   }
 
+  // Malformed limits (negative, fractional) are the validator's INVALID_VALUE; this is the size cap only.
+  if (Number.isSafeInteger(spec.limit) && (spec.limit as number) > g.maxLimit) {
+    errors.push(qerr("VALUE_TOO_LONG", `limit too large (max ${g.maxLimit})`, { field: "limit" }));
+  }
+
   return errors;
+}
+
+/** Bound the error list: the first `maxErrors`, in input order (ADR-0012 §2). */
+export function capErrors(def: QueryDef, errors: QueryError[]): QueryError[] {
+  return errors.length > def.guards.maxErrors ? errors.slice(0, def.guards.maxErrors) : errors;
 }
 
 function checkNodeValues(def: QueryDef, g: ResolvedGuards, node: unknown, errors: QueryError[]): void {

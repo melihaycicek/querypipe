@@ -46,6 +46,20 @@ products.filter("deletedAt", "isNull");            // no value parameter (compil
 Filters accumulate with root-level **AND**. Operator/value pairs are typed per field kind —
 see [Operators](/docs/api/operators). OR groups arrive in v0.3.
 
+Removing is explicit — `filter()` always appends, so a filter UI replaces a condition with
+`removeFilter` + `filter`:
+
+```ts
+const filtered = products.filter("price", "gt", 100).filter("price", "lt", 500);
+
+filtered.removeFilter("price");                             // every condition on price
+filtered.removeFilter("price", "lt");                       // only price:lt
+filtered.removeFilter("price", "gt").filter("price", "gt", 250); // replace
+filtered.clearFilters();                                    // all filters; sorts and pagination kept
+```
+
+Removing something that is not there is a no-op and returns the same instance.
+
 ## Progressive sorting
 
 ```ts
@@ -58,6 +72,7 @@ products
 products.sort("price").removeSort("price");          // remove + renormalize to 1..n
 products.sort("price").toggleSortDirection("price"); // flip in place, priority kept
 products.sort("deletedAt", "asc", { nulls: "first" }); // absolute NULL placement
+products.sort("price").thenSort("name").clearSorts(); // empty the chain
 ```
 
 Full semantics: [Progressive sorting](/docs/concepts/progressive-sorting).

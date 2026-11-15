@@ -32,12 +32,14 @@ const products = createQuery({
     costPrice: numberField({ filterable: false, sortable: false }), // never reachable from the wire
   },
   stableBy: "id",
-  guards: { maxSortColumns: 3, maxFilters: 10, maxInItems: 50 },
+  guards: { maxSortColumns: 3, maxFilters: 10, maxInItems: 50, maxLimit: 100 },
 });
 
 /* ---------------------------------------------------------------- *
  * Manual spec → Prisma findMany args (replaced by toPrisma in v0.2)
  * ---------------------------------------------------------------- */
+
+const DEFAULT_PAGE_SIZE = 30;
 
 type PrismaFindManyArgs = {
   where: Record<string, unknown>;
@@ -88,7 +90,9 @@ function toPrismaArgs(spec: QuerySpec): PrismaFindManyArgs {
     where,
     orderBy,
     ...(spec.offset !== undefined ? { skip: spec.offset } : {}),
-    ...(spec.limit !== undefined ? { take: spec.limit } : {}),
+    // maxLimit caps what a client may ask for; the default page size is applied here,
+    // at execution — the guard never injects a limit into the spec (ADR-0012 §1).
+    take: spec.limit ?? DEFAULT_PAGE_SIZE,
   };
 }
 

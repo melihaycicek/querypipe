@@ -1,0 +1,86 @@
+{
+  "suite": "numeric-safety",
+  "description": "Number values must be exactly representable on every wire: integers outside the IEEE-754 safe range (|n| > 2^53 − 1) are rejected instead of being silently rounded to a neighbouring value (ADR-0012 §3). Applies to the string and JSON ingress paths alike.",
+  "specVersion": 1,
+  "schema": {
+    "stableBy": "id",
+    "fields": {
+      "id": { "type": "number" },
+      "price": { "type": "number" }
+    }
+  },
+  "idField": "id",
+  "cases": [
+    {
+      "name": "parse-max-safe-integer-accepted",
+      "op": "parse",
+      "input": "filter=id:eq:9007199254740991",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "id", "op": "eq", "value": 9007199254740991 }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-min-safe-integer-accepted",
+      "op": "parse",
+      "input": "filter=id:eq:-9007199254740991",
+      "expect": {
+        "ok": true,
+        "spec": {
+          "filters": [{ "kind": "condition", "field": "id", "op": "eq", "value": -9007199254740991 }],
+          "sorts": []
+        }
+      }
+    },
+    {
+      "name": "parse-integer-above-safe-range-rejected",
+      "op": "parse",
+      "input": "filter=id:eq:9007199254740993",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "id", "op": "eq", "position": 13 }] },
+      "note": "A double cannot hold this value — it would silently become …992 and match a different row."
+    },
+    {
+      "name": "parse-integer-below-safe-range-rejected",
+      "op": "parse",
+      "input": "filter=id:eq:-9007199254740992",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "id", "op": "eq" }] }
+    },
+    {
+      "name": "parse-unsafe-member-of-in-list-rejected",
+      "op": "parse",
+      "input": "filter=id:in:1,18014398509481984,3",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "id", "op": "in", "position": 15 }] }
+    },
+    {
+      "name": "parse-decimal-rounding-above-safe-range-rejected",
+      "op": "parse",
+      "input": "filter=price:lt:9007199254740991.5",
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "price", "op": "lt" }] },
+      "note": "The nearest double is 2^53, outside the safe range."
+    },
+    {
+      "name": "validate-integer-above-safe-range-rejected",
+      "op": "validate",
+      "spec": {
+        "filters": [{ "kind": "condition", "field": "id", "op": "eq", "value": 9007199254740992 }],
+        "sorts": []
+      },
+      "expect": { "ok": false, "errors": [{ "code": "INVALID_VALUE", "field": "id", "op": "eq" }] },
+      "note": "2^53 is representable but ambiguous (2^53 + 1 decodes to the same double), so the JSON path rejects it too."
+    },
+    {
+      "name": "roundtrip-safe-range-boundaries",
+      "op": "roundtrip-spec",
+      "spec": {
+        "filters": [
+          { "kind": "condition", "field": "id", "op": "between", "value": [-9007199254740991, 9007199254740991] }
+        ],
+        "sorts": []
+      },
+      "expect": { "output": "filter=id:between:-9007199254740991,9007199254740991" }
+    }
+  ]
+}

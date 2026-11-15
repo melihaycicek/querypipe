@@ -23,7 +23,7 @@ npm install querypipe
 - 🔀 **Progressive multi-sort** — `sort` resets, `thenSort` appends without disturbing prior priorities; the whole chain renormalizes to `1..n` on every edit.
 - 🛡️ **Backend-safe by default** — mandatory field whitelist (no schema-less parse), guard limits, no user input reaching a `RegExp`, structured multi-error `Result` that **never throws** on the data path.
 - 🎯 **Deterministic** — byte-stable canonical `stringify`, stable sort with an auto-injected unique tie-breaker, a fixed SQL `ORDER BY` reference model (PostgreSQL NULL semantics).
-- 🪶 **≈ 7.4 kB min+gzip, zero dependencies**, ESM + CJS, tree-shakable. Optional per-field validation via [Standard Schema](https://standardschema.dev) (Zod/Valibot/ArkType — no coupling).
+- 🪶 **≈ 7.6 kB min+gzip, zero dependencies**, ESM + CJS, tree-shakable. Optional per-field validation via [Standard Schema](https://standardschema.dev) (Zod/Valibot/ArkType — no coupling).
 
 ## Quick start
 
@@ -54,7 +54,7 @@ q.stringify();
 q.apply(rows);   // non-mutating, stable, SQL ORDER BY-equivalent
 
 // Server — untrusted input, never throws
-const parsed = products.parse(req.query.q ?? "");
+const parsed = products.parse(req.originalUrl.split("?")[1] ?? ""); // the raw query string
 if (!isOk(parsed)) return res.status(400).json({ errors: parsed.errors });
 // parsed.value is whitelisted, guard-limited and injection-safe
 ```
@@ -73,7 +73,7 @@ Full docs, architecture decision records, the normative wire-format/grammar spec
 
 **→ [github.com/melihaycicek/querypipe](https://github.com/melihaycicek/querypipe)**
 
-- [Architecture Decision Records](https://github.com/melihaycicek/querypipe/tree/main/docs/adr) (11 ADRs)
+- [Architecture Decision Records](https://github.com/melihaycicek/querypipe/tree/main/docs/adr) (12 ADRs)
 - [Canonical query-string grammar](https://github.com/melihaycicek/querypipe/blob/main/docs/spec/query-string.md) · [JSON wire format](https://github.com/melihaycicek/querypipe/blob/main/docs/spec/wire-format.md)
 - [Roadmap & quarterly plan](https://github.com/melihaycicek/querypipe/blob/main/docs/ROADMAP.md)
 

@@ -55,7 +55,7 @@ error.position; // 0-based UTF-16 index into the exact parse input; best effort
 | `INVALID_VALUE` | Malformed value, arity mismatch, empty segments/items, duplicate segments, group nodes (v0.1), `version` ≠ 1, bad percent-escapes. |
 | `MAX_SORT_EXCEEDED` | More user sort columns than `maxSortColumns`. |
 | `MAX_FILTER_EXCEEDED` | More filter leaves than `maxFilters`. |
-| `VALUE_TOO_LONG` | A decoded value longer than `maxValueLength`, or an `in`/`notIn` list longer than `maxInItems`. |
+| `VALUE_TOO_LONG` | A decoded value longer than `maxValueLength`, an `in`/`notIn` list longer than `maxInItems`, or a `limit` above `maxLimit` (`field: "limit"`). |
 | `CONFLICTING_PAGINATION` | `offset` and `cursor` present together. |
 
 The set is closed and shared with the wire format — the Java port maps it 1:1.

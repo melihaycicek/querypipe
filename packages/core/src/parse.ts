@@ -2,7 +2,7 @@ import { tokenToValue, runStandardSchema } from "./convert";
 import { decodeValue } from "./encode";
 import { qerr, truncate } from "./errors";
 import { deepFreezeSpec } from "./freeze";
-import { applyGuards } from "./guards";
+import { applyGuards, capErrors } from "./guards";
 import { OPERATORS, isOperator, isStringOp } from "./ops";
 import { err, ok, type QueryResult } from "./result";
 import type { FilterCondition, QueryDef, QueryError, QuerySpec, SortCondition } from "./types";
@@ -82,7 +82,7 @@ export function parseSpec(def: QueryDef, input: string): QueryResult<QuerySpec> 
       const restStart = seg.start + eq + 1;
       if (!SEGMENT_KEYS.has(key)) {
         errors.push(
-          qerr("UNKNOWN_FIELD", `unknown segment "${truncate(key)}"`, { field: key, position: seg.start }),
+          qerr("UNKNOWN_FIELD", "unknown segment", { field: truncate(key), position: seg.start }),
         );
         continue;
       }
@@ -140,7 +140,7 @@ export function parseSpec(def: QueryDef, input: string): QueryResult<QuerySpec> 
     errors.push(qerr("CONFLICTING_PAGINATION", "offset and cursor are mutually exclusive"));
   }
 
-  return errors.length > 0 ? err(errors) : ok(deepFreezeSpec(spec));
+  return errors.length > 0 ? err(capErrors(def, errors)) : ok(deepFreezeSpec(spec));
 }
 
 function parseSorts(
@@ -163,7 +163,7 @@ function parseSorts(
     const raw = parts[0] as string;
     const name = def.wireToName.get(raw);
     if (name === undefined) {
-      errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: raw, position: item.start }));
+      errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: truncate(raw), position: item.start }));
       continue;
     }
     if (!(def.fields[name] as QueryDef["fields"][string]).sortable) {
@@ -222,7 +222,7 @@ function parseFilters(
     const raw = parts[0] as string;
     const name = def.wireToName.get(raw);
     if (name === undefined) {
-      errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: raw, position: item.start }));
+      errors.push(qerr("UNKNOWN_FIELD", "unknown field", { field: truncate(raw), position: item.start }));
       continue;
     }
     const field = def.fields[name] as QueryDef["fields"][string];
@@ -237,7 +237,7 @@ function parseFilters(
     const opToken = parts[1] as string;
     const opStart = item.start + raw.length + 1;
     const bad = (code: QueryError["code"], message: string, position = item.start) => {
-      errors.push(qerr(code, message, { field: name, op: opToken, position }));
+      errors.push(qerr(code, message, { field: name, op: truncate(opToken), position }));
     };
     if (!isOperator(opToken)) {
       bad("INVALID_OPERATOR", "unknown operator", opStart);
