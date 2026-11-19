@@ -1,4 +1,4 @@
 {
   "title": "Reference",
-  "pages": ["wire-format", "query-string", "roadmap", "adr"]
+  "pages": ["changelog", "wire-format", "query-string", "roadmap", "adr"]
 }

@@ -23,9 +23,10 @@ targets, not commitments; scope is trimmed before dates slip.
 | Status | Item | Notes |
 | --- | --- | --- |
 | ✅ | `querypipe` core engine | Field DSL, immutable builder, parse/stringify/canonicalize/validate/apply |
-| ✅ | Conformance suite | 20 language-independent JSON vector files + fast-check invariant laws |
+| ✅ | Conformance suite | 23 language-independent JSON vector files + fast-check invariant laws |
 | ✅ | Frozen public API + `.d.ts` contract | CI-typechecked against the export list |
-| ⏳ | Docs site | ADRs + specs + interactive playground (this site) |
+| ✅ | Docs site | ADRs + specs + interactive playground (this site) |
+| ✅ | `v0.1.1` | Boundary hardening; `removeFilter` / `clearFilters` / `clearSorts` ([ADR-0012](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0012-boundary-hardening.md), [changelog](/docs/reference/changelog)) |
 | ⏳ | `v0.1.x` patches | Bug fixes only; **no** wire-format or API-surface changes |
 | ⏳ | Bundle shrink toward 6 kB | Opt-out position tracking, build-time message→code stripping |
 

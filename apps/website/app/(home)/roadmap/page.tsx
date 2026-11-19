@@ -30,9 +30,10 @@ export default function RoadmapPage() {
           title="Stabilize the contract"
           items={[
             ["done", "querypipe core engine — field DSL, immutable builder, parse/stringify/canonicalize/validate/apply"],
-            ["done", "Conformance suite — 20 language-independent JSON vector files + fast-check invariant laws"],
+            ["done", "Conformance suite — 23 language-independent JSON vector files + fast-check invariant laws"],
             ["done", "Frozen public API + .d.ts contract, CI-typechecked against the export list"],
-            ["planned", "Docs site — ADRs + specs + interactive playground (this site)"],
+            ["done", "Docs site — ADRs + specs + interactive playground (this site)"],
+            ["done", "v0.1.1 — boundary hardening; removeFilter / clearFilters / clearSorts (ADR-0012)"],
             ["planned", "v0.1.x patches — bug fixes only; no wire-format or API-surface changes"],
             ["planned", "Bundle shrink toward 6 kB — opt-out position tracking, message→code stripping"],
           ]}

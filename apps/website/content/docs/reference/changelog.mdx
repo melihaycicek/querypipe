@@ -1,0 +1,166 @@
+---
+title: Changelog
+description: What changed in each querypipe release, what to do when upgrading, and how to use the new APIs.
+---
+
+Every release, newest first. Each entry links the decision record behind it; packages are on
+[npm](https://www.npmjs.com/package/querypipe) and release notes on
+[GitHub](https://github.com/melihaycicek/querypipe/releases).
+
+## 0.1.1 — 19 November 2026
+
+```sh
+npm install querypipe@0.1.1
+```
+
+A patch release that hardens the parse/validate boundary and lets the builder remove filters.
+The wire format did not change: every canonical string and JSON spec that was valid in 0.1.0
+means the same thing in 0.1.1. Two kinds of malformed value are now rejected — see
+[Upgrading](#upgrading-from-010).
+
+Decision record: [ADR-0012](https://github.com/melihaycicek/querypipe/blob/main/docs/adr/0012-boundary-hardening.md).
+
+### Cap the page size with `maxLimit`
+
+Without a cap, `limit=9007199254740991` is a valid request and goes straight to your database.
+Set `maxLimit` on every schema that faces one:
+
+```ts
+import { createQuery, dateField, isErr, numberField, stringField } from "querypipe";
+
+const products = createQuery({
+  fields: { id: numberField(), name: stringField(), price: numberField(), stock: numberField() },
+  stableBy: "id",
+  guards: { maxLimit: 100 },
+});
+
+products.parse("limit=100"); // ok
+products.parse("limit=101"); // → VALUE_TOO_LONG, field: "limit"
+```
+
+`maxLimit` only rejects. It never adds a limit to a query that has none, so choose the default
+page size where you run the query:
+
+```ts
+const parsed = products.parse("sort=price:desc");
+if (!isErr(parsed)) {
+  const take = parsed.value.limit ?? 30; // your default page size
+}
+```
+
+The guard is opt-in in 0.1.x so that a patch release doesn't reject requests 0.1.0 accepted.
+
+### Edit filters with `removeFilter`, `clearFilters` and `clearSorts`
+
+`filter()` always appends a condition. Removing one is now explicit:
+
+```ts
+const q = products.filter("price", "gt", 100).filter("stock", "gt", 0).sort("price", "desc");
+
+q.removeFilter("stock").stringify();       // "sort=price:desc&filter=price:gt:100"
+q.removeFilter("price", "gt").stringify(); // only price:gt — "sort=price:desc&filter=stock:gt:0"
+q.clearFilters().stringify();              // "sort=price:desc"
+q.clearSorts().stringify();                // "filter=price:gt:100;stock:gt:0"
+
+// Replace a condition: remove it, then add the new one.
+q.removeFilter("price", "gt").filter("price", "gt", 250);
+```
+
+Removing something that isn't there returns the same instance, so it is safe to call
+unconditionally. A filter toggle — a checkbox or a chip — becomes:
+
+```ts
+function toggleInStock(query: typeof q) {
+  const on = query
+    .toSpec()
+    .filters.some((f) => f.kind === "condition" && f.field === "stock" && f.op === "gt");
+  return on ? query.removeFilter("stock", "gt") : query.filter("stock", "gt", 0);
+}
+```
+
+Before 0.1.1, a toggle written with `filter()` alone appended a duplicate condition on every
+click.
+
+### Bounded error responses
+
+One parse or validate now returns at most `maxErrors` errors (default 50), the first ones in
+input order. Unknown field names, segment keys and operators echoed back in `error.field` /
+`error.op` stop at 64 characters followed by `…`. Together these keep a 16 KB junk request at a
+3.7 KB error body, down from 618 KB in 0.1.0.
+
+```ts
+const hostile = products.parse("a&".repeat(5000));
+if (isErr(hostile)) {
+  hostile.errors.length; // 50
+}
+
+// Need the full list, e.g. in an internal tool? Raise the cap.
+const verbose = createQuery({ fields: { id: numberField() }, guards: { maxErrors: 500 } });
+```
+
+Real queries come nowhere near 50 errors with the default guards, so a normal client never
+sees the cap.
+
+### Exact values only
+
+Two kinds of value used to be accepted and then quietly changed into something else. Both are
+now `INVALID_VALUE`:
+
+- **Integers beyond ±(2^53 − 1).** JavaScript numbers cannot hold them exactly, so
+  `id:eq:9007199254740993` used to match the row with id `…992`.
+- **Days that don't exist**, such as `2024-02-31` or `2023-02-29`. They used to roll over into
+  the next month.
+
+```ts
+products.parse("filter=id:eq:9007199254740993"); // → INVALID_VALUE
+
+// Snowflake / BIGINT identifiers belong in a string field.
+const orders = createQuery({
+  fields: { id: stringField(), placedAt: dateField() },
+  stableBy: "id",
+});
+
+orders.parse("filter=placedAt:eq:2024-02-31"); // → INVALID_VALUE
+orders.parse("filter=placedAt:eq:2024-02-29"); // ok — 2024 is a leap year
+```
+
+The same rules apply to JSON specs in `validateQuerySpec`, and the builder throws `TypeError`
+for them.
+
+### Upgrading from 0.1.0
+
+What behaves differently:
+
+| Input | 0.1.0 | 0.1.1 |
+| --- | --- | --- |
+| `filter=id:eq:9007199254740993` | Accepted, ran as `…992` | `INVALID_VALUE` |
+| `filter=createdAt:eq:2024-02-31` | Accepted, ran as 2 March | `INVALID_VALUE` |
+| JSON spec with `field: "constructor"` | `NOT_FILTERABLE` | `UNKNOWN_FIELD` |
+| A request producing more than 50 errors | Every error returned | First 50 (`guards.maxErrors`) |
+| An unknown 5 000-character field name | Echoed back in full | First 64 characters + `…` |
+
+What to do:
+
+1. Add `guards: { maxLimit: … }` to every schema behind a database endpoint, and apply a
+   default page size where you execute the query.
+2. If any of your numeric IDs can exceed 9 007 199 254 740 991, declare them with
+   `stringField()`.
+3. If you built filter toggles on `filter()` alone, switch them to `removeFilter` so they stop
+   stacking duplicates.
+
+Known gaps that are still open — URL-safe encoding, unknown query parameters, case-insensitive
+`contains` — are tracked in
+[`docs/IMPROVEMENTS.md`](https://github.com/melihaycicek/querypipe/blob/main/docs/IMPROVEMENTS.md).
+
+## 0.1.0 — 6 July 2026
+
+The first release: the query contract.
+
+- A field schema DSL with sortable/filterable flags and enum narrowing.
+- An immutable builder with progressive multi-sort.
+- Lossless `parse` / `stringify` / `canonicalize` for the canonical string format.
+- `validateQuerySpec` with guard limits and multi-error results that never throw.
+- Client-side `apply` that matches SQL `ORDER BY` semantics.
+- A language-independent conformance suite.
+
+Start with the [60-second tour](/docs/getting-started/tour).

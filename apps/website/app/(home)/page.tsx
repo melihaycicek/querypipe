@@ -8,7 +8,14 @@ import { InstallTabs } from "@/components/landing/install-tabs";
 import { NewsletterForm } from "@/components/landing/newsletter-form";
 import { RoadmapTeaser } from "@/components/landing/roadmap-teaser";
 import { ServerStory } from "@/components/landing/server-story";
-import { GITHUB_URL, HEADLINE, SITE_DESCRIPTION, SITE_URL, STATS } from "@/lib/site";
+import {
+  GITHUB_URL,
+  HEADLINE,
+  LATEST_RELEASE,
+  SITE_DESCRIPTION,
+  SITE_URL,
+  STATS,
+} from "@/lib/site";
 
 // The try-it strip is interactive-only below the fold — code-split so the
 // static shell paints first.
@@ -22,6 +29,14 @@ export default function LandingPage() {
       {/* Hero — the live wire */}
       <section className="border-b border-line">
         <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-12 sm:px-6 sm:pt-16">
+          <Link
+            href={LATEST_RELEASE.href}
+            className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-ink-muted transition-colors hover:border-ink-muted hover:text-ink"
+          >
+            <span className="font-mono font-semibold text-tok-key">v{LATEST_RELEASE.version}</span>
+            <span className="truncate">{LATEST_RELEASE.summary}</span>
+            <span aria-hidden>→</span>
+          </Link>
           <p className="eyebrow mb-3">URL ⇄ QuerySpec ⇄ rows</p>
           <h1 className="max-w-2xl font-mono text-2xl font-semibold leading-snug tracking-tight sm:text-[2rem]">
             {HEADLINE}
@@ -145,6 +160,6 @@ function jsonLd() {
     programmingLanguage: "TypeScript",
     runtimePlatform: "Node.js >= 18.17",
     license: "https://opensource.org/licenses/MIT",
-    version: "0.1.1",
+    version: LATEST_RELEASE.version,
   };
 }

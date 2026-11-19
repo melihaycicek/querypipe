@@ -21,6 +21,7 @@ export function SiteFooter() {
             <Link href="/playground" className="text-ink-muted transition-colors hover:text-ink">Playground</Link>
             <a href={NPM_URL} target="_blank" rel="noreferrer" className="text-ink-muted transition-colors hover:text-ink">npm</a>
             <Link href="/roadmap" className="text-ink-muted transition-colors hover:text-ink">Roadmap</Link>
+            <Link href="/docs/reference/changelog" className="text-ink-muted transition-colors hover:text-ink">Changelog</Link>
             <Link href="/privacy" className="text-ink-muted transition-colors hover:text-ink">Privacy</Link>
           </nav>
         </div>

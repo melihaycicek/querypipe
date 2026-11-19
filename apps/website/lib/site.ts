@@ -18,8 +18,15 @@ export const HEADLINE = "One typed contract from URL to database.";
 export const STATS = [
   { value: "0", label: "dependencies" },
   { value: "≈7.6 kB", label: "min+gzip" },
-  { value: "182", label: "conformance tests" },
+  { value: "224", label: "conformance tests" },
 ] as const;
+
+/** The release announced on the landing page; keep in sync with packages/core/package.json. */
+export const LATEST_RELEASE = {
+  version: "0.1.1",
+  summary: "maxLimit, removeFilter, stricter value checks",
+  href: "/docs/reference/changelog",
+} as const;
 
 export const INSTALL_COMMANDS = {
   npm: "npm install querypipe",

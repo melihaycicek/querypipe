@@ -17,9 +17,10 @@ The engine and the conformance suite are shipped. This quarter hardens them and 
 | Status | Item | Notes |
 | --- | --- | --- |
 | ✅ | `querypipe` core engine | Field DSL, immutable builder, parse/stringify/canonicalize/validate/apply |
-| ✅ | Conformance suite | 20 language-independent JSON vector files + fast-check invariant laws |
+| ✅ | Conformance suite | 23 language-independent JSON vector files + fast-check invariant laws |
 | ✅ | Frozen public API + `.d.ts` contract | CI-typechecked against the export list |
-| ⏳ | Docs site | ADRs + specs + interactive playground (parse ⇄ spec ⇄ string) |
+| ✅ | Docs site | ADRs + specs + interactive playground (parse ⇄ spec ⇄ string) |
+| ✅ | `v0.1.1` | Boundary hardening; `removeFilter` / `clearFilters` / `clearSorts` ([ADR-0012](adr/0012-boundary-hardening.md)) |
 | ⏳ | `v0.1.x` patches | Bug fixes only; **no** wire-format or API-surface changes |
 | ⏳ | Bundle shrink toward 6 kB | Opt-out position tracking, build-time message→code stripping (see [ADR-0003 §Consequences](adr/0003-error-model.md)) |
 
